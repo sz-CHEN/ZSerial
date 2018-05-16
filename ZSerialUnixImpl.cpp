@@ -1,11 +1,11 @@
 #if defined(__linux__) || defined(__APPLE__)
-//reference (http://www.cmrr.umn.edu/~strupp/serial.html)
-#include "ZSerial.h"
+// reference (http://www.cmrr.umn.edu/~strupp/serial.html)
 #include <fcntl.h>
 #include <sys/errno.h>
 #include <sys/ioctl.h>
 #include <sys/termios.h>
 #include <unistd.h>
+#include "ZSerial.h"
 namespace ZSerial {
 SerialPort::SerialPort(std::string portName, BaudRate baudrate, Parity parity,
                        DataBits databits, StopBits stopbits)
@@ -16,6 +16,7 @@ SerialPort::SerialPort(std::string portName, BaudRate baudrate, Parity parity,
       stopbits(stopbits),
       handshake(Handshake::None),
       hcom(0) {}
+SerialPort::~SerialPort() { Close(); }
 void SerialPort::Close() {
     close((intptr_t)hcom);
     hcom = 0;
@@ -26,7 +27,8 @@ std::vector<std::string> SerialPort::GetPortNames() {
     return std::vector<std::string>();
 }
 int SerialPort::Open() {
-    hcom = (void*)(intptr_t)open(portName.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
+    hcom =
+        (void*)(intptr_t)open(portName.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
     if ((intptr_t)hcom < 0) {
         // printf("open %s error\n",portName.c_str());
         return 1;

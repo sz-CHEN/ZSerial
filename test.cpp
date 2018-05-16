@@ -1,19 +1,18 @@
 #include <iostream>
 #include "ZSerial.h"
-#include <Windows.h>
 #include <cstdio>
 using namespace ZSerial;
 int main(int argc, char const *argv[]) {
-    auto a=SerialPort::GetPortNames();
-    SerialPort serial(a[2], BaudRate::BR_115200);
+    // auto a=SerialPort::GetPortNames();
+    SerialPort serial("/dev/ttys000", BaudRate::BR_115200);
     if (serial.Open() != 0) {
-        printf_s("err\n");
+        printf("err\n");
         getchar();
         return -1;
     }
-    SerialPort serial1(a[1], BaudRate::BR_115200);
+    SerialPort serial1("/dev/ttys003", BaudRate::BR_115200);
     if (serial1.Open() != 0) {
-        printf_s("err\n");
+        printf("err\n");
         getchar();
         return -1;
     }
