@@ -76,7 +76,7 @@
             "name": "(Windows) Launch Debug 64",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/x64/Debug/sim_env.exe",
+            "program": "${workspaceFolder}/build/Debug/ZSerial.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

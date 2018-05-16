@@ -34,7 +34,7 @@
         {
             "label": "wincmake",
             "type": "shell",
-            "command": "cd build && cmake -G \"Visual Studio 15 2017 Win64\" \"${workspaceFolder}\"",
+            "command": "cd \"${workspaceFolder}\\build\" && cmake -G \"Visual Studio 15 2017 Win64\" \"${workspaceFolder}\"",
             "args": [],
             "group": {
                 "kind": "build",

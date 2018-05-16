@@ -69,6 +69,8 @@
         "sstream": "cpp",
         "fstream": "cpp",
         "iomanip": "cpp",
-        "string_view": "cpp"
+        "string_view": "cpp",
+        "climits": "cpp",
+        "*.rh": "cpp"
     }
 }

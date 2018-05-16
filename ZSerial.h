@@ -35,7 +35,7 @@ enum class Handshake : int {
 };
 class SerialPort {
    public:
-	void* hcom;
+    void* hcom;
     std::string portName;
     BaudRate baudrate;
     Parity parity;
@@ -45,10 +45,11 @@ class SerialPort {
     SerialPort(std::string portName, BaudRate baudrate,
                Parity parity = Parity::None, DataBits databits = DataBits::DB_8,
                StopBits stopbits = StopBits::One);
+    ~SerialPort();
     void Close();
     void DiscardInBuffer();
     void DiscardOutBuffer();
-    std::vector<std::string> GetPortNames();
+    static std::vector<std::string> GetPortNames();
     int Open();
     int Read(char* buffer, int offset, int count);
     char ReadByte();
