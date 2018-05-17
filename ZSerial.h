@@ -2,6 +2,11 @@
 #define __BASE_SERIAL_H
 #include <string>
 #include <vector>
+#ifdef _WIN32
+#define DLL_EXPORT _declspec(dllexport)
+#else
+#define DLL_EXPORT
+#endif
 namespace ZSerial {
 enum class BaudRate : int {
     BR_110 = 110,
@@ -33,7 +38,7 @@ enum class Handshake : int {
     RequestToSendXOnXOff,
     XOnXOff
 };
-class SerialPort {
+class DLL_EXPORT SerialPort {
    public:
     void* hcom;
     std::string portName;
