@@ -39,6 +39,8 @@ enum class Handshake : int {
     XOnXOff
 };
 class DLL_EXPORT SerialPort {
+    private:
+    bool opened;
    public:
     void* hcom;
     std::string portName;
@@ -52,6 +54,7 @@ class DLL_EXPORT SerialPort {
                StopBits stopbits = StopBits::One);
     ~SerialPort();
     void Close();
+    bool IsOpen();
     void DiscardInBuffer();
     void DiscardOutBuffer();
     static std::vector<std::string> GetPortNames();

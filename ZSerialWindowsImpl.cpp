@@ -11,11 +11,13 @@ SerialPort::SerialPort(std::string portName, BaudRate baudrate, Parity parity,
       databits(databits),
       stopbits(stopbits),
       handshake(Handshake::None),
-      hcom(0) {}
+      hcom(0),
+      opened(false) {}
 SerialPort::~SerialPort() { Close(); }
 void SerialPort::Close() {
     CloseHandle(hcom);
     hcom = 0;
+    opened=false;
 }
 void SerialPort::DiscardInBuffer() {
     if (!PurgeComm(hcom, PURGE_RXABORT | PURGE_RXCLEAR)) {
@@ -92,6 +94,7 @@ int SerialPort::Open() {
     if (!SetCommState(hcom, &dcb)) {
         return 7;
     }
+    opened=true;
     return 0;
 }
 int SerialPort::Read(char* buffer, int offset, int count) {
@@ -129,6 +132,9 @@ void SerialPort::WriteLine(std::string text) {
     text += "\r\n";
     unsigned long write = 0;
     WriteFile(hcom, &text[0], text.size(), &write, NULL);
+}
+bool SerialPort::IsOpen(){
+    return opened;
 }
 }  // namespace ZSerial
 #endif

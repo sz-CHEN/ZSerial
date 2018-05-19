@@ -15,11 +15,13 @@ SerialPort::SerialPort(std::string portName, BaudRate baudrate, Parity parity,
       databits(databits),
       stopbits(stopbits),
       handshake(Handshake::None),
-      hcom(0) {}
+      hcom(0),
+      opened(false) {}
 SerialPort::~SerialPort() { Close(); }
 void SerialPort::Close() {
     close((intptr_t)hcom);
     hcom = 0;
+    opened=false;
 }
 void SerialPort::DiscardInBuffer() { tcflush((intptr_t)hcom, TCIFLUSH); }
 void SerialPort::DiscardOutBuffer() { tcflush((intptr_t)hcom, TCOFLUSH); }
@@ -130,6 +132,7 @@ int SerialPort::Open() {
         // printf("error %d from tcsetattr", errno);
         return 7;
     }
+    opened=true;
     return 0;
 }
 
@@ -160,6 +163,9 @@ void SerialPort::Write(std::string text) {
 void SerialPort::WriteLine(std::string text) {
     text += "\r\n";
     write((intptr_t)hcom, text.data(), text.size());
+}
+bool SerialPort::IsOpen(){
+    return opened;
 }
 }  // namespace ZSerial
 #endif
