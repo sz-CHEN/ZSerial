@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(ZSerial)
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_DEBUG_POSTFIX d)
 if(CMAKE_HOST_WIN32)
 add_library(${PROJECT_NAME} SHARED ZSerialWindowsImpl.cpp)
 # add_executable(${PROJECT_NAME} test.cpp ZSerialWindowsImpl.cpp)
