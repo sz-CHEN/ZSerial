@@ -3,7 +3,7 @@
 #include <process.h>
 #include "ZSerial.h"
 namespace ZSerial {
-SerialPort::SerialPort(std::string portName, BaudRate baudrate, Parity parity,
+SerialPort::SerialPort(std::string portName, int baudrate, Parity parity,
                        DataBits databits, StopBits stopbits)
     : portName(portName),
       baudrate(baudrate),

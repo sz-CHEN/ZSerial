@@ -44,12 +44,12 @@ class DLL_EXPORT SerialPort {
    public:
     void* hcom;
     std::string portName;
-    BaudRate baudrate;
+    int baudrate;
     Parity parity;
     StopBits stopbits;
     DataBits databits;
     Handshake handshake;
-    SerialPort(std::string portName, BaudRate baudrate,
+    SerialPort(std::string portName, int baudrate,
                Parity parity = Parity::None, DataBits databits = DataBits::DB_8,
                StopBits stopbits = StopBits::One);
     ~SerialPort();
