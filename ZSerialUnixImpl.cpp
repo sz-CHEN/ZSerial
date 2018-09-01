@@ -155,6 +155,24 @@ std::string SerialPort::ReadExisting() {
     fcntl((intptr_t)hcom, F_SETFL, 0);
     return ret;
 }
+
+std::string SerialPort::ReadLine() {
+    std::string str;
+    char c;
+    while (true) {
+        auto s = read((intptr_t)hcom, &c, 1);
+        if (s == 1) {
+            if (c == '\n') {
+                if(str.back()=='\r'){
+                    str.pop_back();
+                }
+                return str;
+            }
+            str.push_back(c);
+        }
+    }
+}
+
 void SerialPort::Write(char* buffer, int offset, int count) {
     write((intptr_t)hcom, buffer + offset, count);
 }

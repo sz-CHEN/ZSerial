@@ -17,7 +17,7 @@ SerialPort::~SerialPort() { Close(); }
 void SerialPort::Close() {
     CloseHandle(hcom);
     hcom = 0;
-    opened=false;
+    opened = false;
 }
 void SerialPort::DiscardInBuffer() {
     if (!PurgeComm(hcom, PURGE_RXABORT | PURGE_RXCLEAR)) {
@@ -94,7 +94,7 @@ int SerialPort::Open() {
     if (!SetCommState(hcom, &dcb)) {
         return 7;
     }
-    opened=true;
+    opened = true;
     return 0;
 }
 int SerialPort::Read(char* buffer, int offset, int count) {
@@ -114,10 +114,28 @@ std::string SerialPort::ReadExisting() {
     COMSTAT cs;
     ClearCommError(hcom, &dwError, &cs);
     std::string ret(cs.cbInQue, 0);
-    DWORD read=0;
+    DWORD read = 0;
     ReadFile(hcom, &ret[0], cs.cbInQue, &read, NULL);
     ret.resize(read);
     return ret;
+}
+
+std::string SerialPort::ReadLine() {
+    std::string str;
+    char c;
+    DWORD read;
+    while (true) {
+        ReadFile(hcom, &c, 1, &read, NULL);
+        if (read == 1) {
+            if (c == '\n') {
+                if (str.back() == '\r') {
+                    str.pop_back();
+                }
+                return str;
+            }
+            str.push_back(c);
+        }
+    }
 }
 
 void SerialPort::Write(char* buffer, int offset, int count) {
@@ -133,8 +151,6 @@ void SerialPort::WriteLine(std::string text) {
     unsigned long write = 0;
     WriteFile(hcom, &text[0], text.size(), &write, NULL);
 }
-bool SerialPort::IsOpen(){
-    return opened;
-}
+bool SerialPort::IsOpen() { return opened; }
 }  // namespace ZSerial
 #endif

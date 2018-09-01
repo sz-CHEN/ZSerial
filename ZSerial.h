@@ -62,7 +62,7 @@ class DLL_EXPORT SerialPort {
     int Read(char* buffer, int offset, int count);
     char ReadByte();
     std::string ReadExisting();
-    // std::string ReadLine();
+    std::string ReadLine();
     void Write(char* buffer, int offset, int count);
     void Write(std::string text);
     void WriteLine(std::string text);

@@ -71,6 +71,8 @@
         "iomanip": "cpp",
         "string_view": "cpp",
         "climits": "cpp",
-        "*.rh": "cpp"
+        "*.rh": "cpp",
+        "__config": "cpp",
+        "__nullptr": "cpp"
     }
 }
