@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 #include <sys/termios.h>
 #include <unistd.h>
+#include <cstring>
 #include "ZSerial.h"
 namespace ZSerial {
 SerialPort::SerialPort(std::string portName, int baudrate, Parity parity,
@@ -21,7 +22,7 @@ SerialPort::~SerialPort() { Close(); }
 void SerialPort::Close() {
     close((intptr_t)hcom);
     hcom = 0;
-    opened=false;
+    opened = false;
 }
 void SerialPort::DiscardInBuffer() { tcflush((intptr_t)hcom, TCIFLUSH); }
 void SerialPort::DiscardOutBuffer() { tcflush((intptr_t)hcom, TCOFLUSH); }
@@ -132,7 +133,7 @@ int SerialPort::Open() {
         // printf("error %d from tcsetattr", errno);
         return 7;
     }
-    opened=true;
+    opened = true;
     return 0;
 }
 
@@ -164,8 +165,6 @@ void SerialPort::WriteLine(std::string text) {
     text += "\r\n";
     write((intptr_t)hcom, text.data(), text.size());
 }
-bool SerialPort::IsOpen(){
-    return opened;
-}
+bool SerialPort::IsOpen() { return opened; }
 }  // namespace ZSerial
 #endif
