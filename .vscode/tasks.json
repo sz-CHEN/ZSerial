@@ -4,56 +4,18 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "linuxbulid_debug",
+            "label": "build debug",
             "type": "shell",
-            "command": "mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Debug ../ && make",
+            "linux": {
+                "command": "mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Debug ../ && make",
+            },
+            "osx": {
+                "command": "mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Debug ../ && make",
+            },
+            "windows": {
+                "command": "cd build && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" amd64 && cmake -DCMAKE_BUILD_TYPE=Debug -G \"CodeBlocks - NMake Makefiles\" ../ && cmake --build ./ --target all --",
+            },
             "args": [],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "reveal": "silent"
-            },
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "linuxbulid_release",
-            "type": "shell",
-            "command": "mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release ../ && make",
-            "args": [],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "reveal": "silent"
-            },
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "wincmake",
-            "type": "shell",
-            "command": "cd \"${workspaceFolder}\\build\" && cmake -G \"Visual Studio 15 2017 Win64\" \"${workspaceFolder}\"",
-            "args": [],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "reveal": "silent"
-            },
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "win64build_debug",
-            "type": "shell",
-            "command": "cd build && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\MSBuild\\15.0\\Bin\\amd64\\MSBuild.exe\"",
-            "args": [
-                "ALL_BUILD.vcxproj",
-                "/t:build",
-                "/p:Configuration=Debug"
-            ],
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -64,50 +26,18 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "win64build_release",
+            "label": "build release",
             "type": "shell",
-            "command": "cd build && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\MSBuild\\15.0\\Bin\\amd64\\MSBuild.exe\"",
-            "args": [
-                "ALL_BUILD.vcxproj",
-                "/t:build",
-                "/p:Configuration=Release"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
+            "linux": {
+                "command": "mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release ../ && make",
             },
-            "presentation": {
-                "reveal": "always"
+            "osx": {
+                "command": "mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release ../ && make",
             },
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "win32build_debug",
-            "type": "shell",
-            "command": "cd build && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\MSBuild\\15.0\\Bin\\MSBuild.exe\"",
-            "args": [
-                "ALL_BUILD.vcxproj",
-                "/t:build",
-                "/p:Configuration=Debug"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
+            "windows": {
+                "command": "cd build && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat\" amd64 && cmake -DCMAKE_BUILD_TYPE=Release -G \"CodeBlocks - NMake Makefiles\" ../ && cmake --build ./ --target all --",
             },
-            "presentation": {
-                "reveal": "always"
-            },
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "win32build_release",
-            "type": "shell",
-            "command": "cd build && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\MSBuild\\15.0\\Bin\\MSBuild.exe\"",
-            "args": [
-                "ALL_BUILD.vcxproj",
-                "/t:build",
-                "/p:Configuration=Release"
-            ],
+            "args": [],
             "group": {
                 "kind": "build",
                 "isDefault": true

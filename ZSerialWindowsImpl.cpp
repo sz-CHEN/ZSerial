@@ -1,7 +1,11 @@
 #ifdef _WIN32
+#ifndef _WINDOWS_
 #include <Windows.h>
+#endif
+#include <SetupAPI.h>
 #include <process.h>
 #include "ZSerial.h"
+#pragma comment(lib, "setupapi.lib")
 namespace ZSerial {
 SerialPort::SerialPort(std::string portName, int baudrate, Parity parity,
                        DataBits databits, StopBits stopbits)
@@ -49,6 +53,82 @@ std::vector<std::string> SerialPort::GetPortNames() {
     // printf_s("\n");
     return rets;
 }
+
+std::vector<std::pair<std::string, std::string>>
+SerialPort::GetPortNamesAndDescriptions() {
+    {
+        std::vector<std::pair<std::string, std::string>> rets;
+        std::string strErr;
+        GUID* guidDev = (GUID*)&GUID_CLASS_COMPORT;
+        HDEVINFO hDevInfo = INVALID_HANDLE_VALUE;
+        SP_DEVICE_INTERFACE_DETAIL_DATA_A* pDetData = NULL;
+        hDevInfo = SetupDiGetClassDevsA(guidDev, NULL, NULL,
+                                        DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+        if (hDevInfo == INVALID_HANDLE_VALUE) {
+            return rets;
+        }
+        BOOL bOk = TRUE;
+        SP_DEVICE_INTERFACE_DATA ifcData;
+        DWORD dwDetDataSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA) + 256;
+        pDetData = (SP_DEVICE_INTERFACE_DETAIL_DATA_A*)new char[dwDetDataSize];
+        ifcData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+        pDetData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+        for (DWORD ii = 0; bOk; ii++) {
+            bOk = SetupDiEnumDeviceInterfaces(hDevInfo, NULL, guidDev, ii,
+                                              &ifcData);
+            if (bOk) {
+                SP_DEVINFO_DATA devdata = {sizeof(SP_DEVINFO_DATA)};
+                bOk = SetupDiGetDeviceInterfaceDetailA(hDevInfo, &ifcData,
+                                                       pDetData, dwDetDataSize,
+                                                       NULL, &devdata);
+                if (bOk) {
+                    char fname[256];
+                    auto bSuccess = SetupDiGetDeviceRegistryPropertyA(
+                        hDevInfo, &devdata, SPDRP_FRIENDLYNAME, NULL,
+                        (PBYTE)fname, sizeof(fname), NULL);
+                    if (bSuccess) {
+                        std::string name(fname);
+                        auto iterS = name.find("(") + name.begin();
+                        auto iterE = name.find(")") + name.begin();
+                        std::string desc(name.begin(), iterS);
+                        name = std::string(iterS + 1, iterE);
+                        rets.push_back({name, desc});
+                    }
+
+                } else {
+                }
+            } else {
+                return rets;
+            }
+        }
+        if (pDetData != NULL) delete[](char*) pDetData;
+        if (hDevInfo != INVALID_HANDLE_VALUE)
+            SetupDiDestroyDeviceInfoList(hDevInfo);
+
+        return rets;
+    }
+    std::vector<std::pair<std::string, std::string>> rets;
+    HKEY hKey;
+    RegOpenKeyA(HKEY_LOCAL_MACHINE, "HARDWARE\\DEVICEMAP\\SERIALCOMM\\", &hKey);
+    unsigned char buf[256];
+    char buff[256];
+    DWORD n = 256;
+    DWORD nn = 256;
+    int i = 0;
+    while (ERROR_SUCCESS ==
+           RegEnumValueA(hKey, i++, buff, &nn, NULL, NULL, buf, &n)) {
+        std::string com(reinterpret_cast<char const*>(buf));
+        std::string des(reinterpret_cast<char const*>(buff));
+        rets.push_back({com, des});
+        // printf_s("%s\t%s\t\n", buf, buff);
+        n = 256;
+        nn = 256;
+    }
+    RegCloseKey(hKey);
+    // printf_s("\n");
+    return rets;
+}
+
 int SerialPort::Open() {
     hcom = CreateFile(TEXT(("\\\\.\\" + portName).c_str()),
                       GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0,

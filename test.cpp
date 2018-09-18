@@ -3,7 +3,7 @@
 #include <cstdio>
 using namespace ZSerial;
 int main(int argc, char const *argv[]) {
-    // auto a=SerialPort::GetPortNames();
+    auto a=SerialPort::GetPortNamesAndDescriptions();
     SerialPort serial("/dev/ttyp0", (int)BaudRate::BR_115200);
     if (serial.Open() != 0) {
         printf("err\n");

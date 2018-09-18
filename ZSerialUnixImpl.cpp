@@ -29,6 +29,12 @@ void SerialPort::DiscardOutBuffer() { tcflush((intptr_t)hcom, TCOFLUSH); }
 std::vector<std::string> SerialPort::GetPortNames() {
     return std::vector<std::string>();
 }
+
+std::vector<std::pair<std::string, std::string>>
+SerialPort::GetPortNamesAndDescriptions() {
+    return std::vector<std::pair<std::string, std::string>>();
+}
+
 int SerialPort::Open() {
     hcom =
         (void*)(intptr_t)open(portName.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
@@ -163,7 +169,7 @@ std::string SerialPort::ReadLine() {
         auto s = read((intptr_t)hcom, &c, 1);
         if (s == 1) {
             if (c == '\n') {
-                if(str.back()=='\r'){
+                if (str.back() == '\r') {
                     str.pop_back();
                 }
                 return str;

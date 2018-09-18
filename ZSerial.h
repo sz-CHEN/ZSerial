@@ -39,8 +39,9 @@ enum class Handshake : int {
     XOnXOff
 };
 class DLL_EXPORT SerialPort {
-    private:
+   private:
     bool opened;
+
    public:
     void* hcom;
     std::string portName;
@@ -49,8 +50,8 @@ class DLL_EXPORT SerialPort {
     StopBits stopbits;
     DataBits databits;
     Handshake handshake;
-    SerialPort(std::string portName, int baudrate,
-               Parity parity = Parity::None, DataBits databits = DataBits::DB_8,
+    SerialPort(std::string portName, int baudrate, Parity parity = Parity::None,
+               DataBits databits = DataBits::DB_8,
                StopBits stopbits = StopBits::One);
     ~SerialPort();
     void Close();
@@ -58,6 +59,8 @@ class DLL_EXPORT SerialPort {
     void DiscardInBuffer();
     void DiscardOutBuffer();
     static std::vector<std::string> GetPortNames();
+    static std::vector<std::pair<std::string, std::string>>
+    GetPortNamesAndDescriptions();
     int Open();
     int Read(char* buffer, int offset, int count);
     char ReadByte();

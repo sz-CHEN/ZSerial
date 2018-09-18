@@ -5,7 +5,9 @@
             "includePath": [
                 "/usr/include",
                 "/usr/local/include",
-                "${workspaceFolder}"
+                "${workspaceFolder}",
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/include/unix"
             ],
             "defines": [],
             "intelliSenseMode": "clang-x64",
@@ -13,7 +15,9 @@
                 "path": [
                     "/usr/include",
                     "/usr/local/include",
-                    "${workspaceFolder}"
+                    "${workspaceFolder}",
+                    "${workspaceFolder}/include",
+                    "${workspaceFolder}/include/unix"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
@@ -65,9 +69,6 @@
             "name": "Win32",
             "browse": {
                 "path": [
-                    "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Tools\\MSVC\\14.13.26128\\include",
-                    "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.16299.0\\ucrt",
-                    "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.16299.0\\um",
                     "${workspaceFolder}",
                     "${workspaceFolder}/include",
                     "${workspaceFolder}/include/win32"
@@ -75,9 +76,6 @@
                 "limitSymbolsToIncludedHeaders": true
             },
             "includePath": [
-                "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Tools\\MSVC\\14.13.26128\\include",
-                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.16299.0\\ucrt",
-                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.16299.0\\um",
                 "${workspaceFolder}",
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/win32"
@@ -89,7 +87,7 @@
             ],
             "cStandard": "c11",
             "intelliSenseMode": "msvc-x64",
-            "cppStandard": "c++11"
+            "cppStandard": "c++14"
         }
     ],
     "version": 4
