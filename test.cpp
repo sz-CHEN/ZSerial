@@ -8,7 +8,7 @@ int main(int argc, char const *argv[]) {
         std::cout<<r.first<<std::endl;
     }
     // return 0;
-    SerialPort serial(a[0].first, (int)BaudRate::BR_115200);
+    SerialPort serial("/dev/ttys000", (int)BaudRate::BR_115200);
     if (serial.Open() != 0) {
         printf("err\n");
         printf(strerror(errno));
