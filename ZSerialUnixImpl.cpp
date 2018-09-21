@@ -1,13 +1,118 @@
 #if defined(__linux__) || defined(__APPLE__)
 // reference (http://www.cmrr.umn.edu/~strupp/serial.html)
+#include <dirent.h>
 #include <fcntl.h>
 #include <sys/errno.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/termios.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <algorithm>
 #include <cstring>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/serial/IOSerialKeys.h>
+#endif
 #include "ZSerial.h"
 namespace ZSerial {
+#ifdef __APPLE__
+static kern_return_t MyFindModems(io_iterator_t* matchingServices) {
+    kern_return_t kernResult;
+    mach_port_t masterPort;
+    CFMutableDictionaryRef classesToMatch;
+
+    kernResult = IOMasterPort(MACH_PORT_NULL, &masterPort);
+    if (KERN_SUCCESS != kernResult) {
+        printf("IOMasterPort returned %d\n", kernResult);
+        goto exit;
+    }
+
+    // Serial devices are instances of class IOSerialBSDClient.
+    classesToMatch = IOServiceMatching(kIOSerialBSDServiceValue);
+    if (classesToMatch == NULL) {
+        printf("IOServiceMatching returned a NULL dictionary.\n");
+    } else {
+        CFDictionarySetValue(classesToMatch, CFSTR(kIOSerialBSDTypeKey),
+                             CFSTR(kIOSerialBSDAllTypes));
+
+        // Each serial device object has a property with key
+        // kIOSerialBSDTypeKey and a value that is one of
+        // kIOSerialBSDAllTypes, kIOSerialBSDModemType,
+        // or kIOSerialBSDRS232Type. You can change the
+        // matching dictionary to find other types of serial
+        // devices by changing the last parameter in the above call
+        // to CFDictionarySetValue.
+    }
+
+    kernResult = IOServiceGetMatchingServices(masterPort, classesToMatch,
+                                              matchingServices);
+    if (KERN_SUCCESS != kernResult) {
+        printf("IOServiceGetMatchingServices returned %d\n", kernResult);
+        goto exit;
+    }
+
+exit:
+    return kernResult;
+}
+static kern_return_t MyGetModemPath(io_iterator_t serialPortIterator,
+                                    std::vector<std::string>& deviceFilePaths) {
+    io_object_t modemService = serialPortIterator;
+    kern_return_t kernResult = KERN_FAILURE;
+    // Boolean modemFound = false;
+
+    // Initialize the returned path
+    char deviceFilePath[PATH_MAX] = "\0";
+
+    // Iterate across all modems found. In this example, we exit after
+    // finding the first modem.
+
+    while (/*(!modemFound) &&*/
+           (modemService = IOIteratorNext(serialPortIterator))) {
+        CFTypeRef deviceFilePathAsCFString;
+
+        // Get the callout device's path (/dev/cu.xxxxx).
+        // The callout device should almost always be
+        // used. You would use the dialin device (/dev/tty.xxxxx) when
+        // monitoring a serial port for
+        // incoming calls, for example, a fax listener.
+
+        deviceFilePathAsCFString = IORegistryEntryCreateCFProperty(
+            modemService, CFSTR(kIOCalloutDeviceKey), kCFAllocatorDefault, 0);
+        if (deviceFilePathAsCFString) {
+            Boolean result;
+
+            // Convert the path from a CFString to a NULL-terminated C string
+            // for use with the POSIX open() call.
+
+            result = CFStringGetCString(
+                CFCopyDescription(deviceFilePathAsCFString), deviceFilePath,
+                PATH_MAX, kCFStringEncodingASCII);
+            CFRelease(deviceFilePathAsCFString);
+
+            if (result) {
+                deviceFilePaths.push_back(deviceFilePath);
+                // printf("BSD path: %s", deviceFilePath);
+                // modemFound = true;
+                kernResult = KERN_SUCCESS;
+            }
+        }
+
+        // printf("\n");
+
+        // Release the io_service_t now that we are done with it.
+        (void)IOObjectRelease(modemService);
+    }
+
+    return kernResult;
+}
+
+#endif
 SerialPort::SerialPort(std::string portName, int baudrate, Parity parity,
                        DataBits databits, StopBits stopbits)
     : portName(portName),
@@ -27,12 +132,172 @@ void SerialPort::Close() {
 void SerialPort::DiscardInBuffer() { tcflush((intptr_t)hcom, TCIFLUSH); }
 void SerialPort::DiscardOutBuffer() { tcflush((intptr_t)hcom, TCOFLUSH); }
 std::vector<std::string> SerialPort::GetPortNames() {
-    return std::vector<std::string>();
+    std::vector<std::string> rets;
+#ifdef __APPLE__
+    // int fileDescriptor;
+    kern_return_t kernResult;
+
+    io_iterator_t serialPortIterator;
+    // char deviceFilePath[PATH_MAX];
+
+    kernResult = MyFindModems(&serialPortIterator);
+    // while (serialPortIterator != 0) {
+    kernResult = MyGetModemPath(serialPortIterator, rets);
+    // serialPortIterator = IOIteratorNext(serialPortIterator);
+    // std::cout << deviceFilePath << std::endl;
+    // }
+    IOObjectRelease(serialPortIterator);  // Release the iterator.
+    for (auto& name : rets) {
+        name.erase(name.begin(), name.begin() + name.find_first_of("\"") + 1);
+        name.erase(name.begin() + name.find_first_of("\""), name.end());
+    }
+#else
+    struct dirent** namelist;
+    int n;
+
+    n = scandir("/dev/serial/by-id", &namelist, NULL, alphasort);
+    if (n == -1) {
+    } else {
+        while (n--) {
+            char name[PATH_MAX];
+            auto* pname = realpath(
+                ("/dev/serial/by-id/" + std::string(namelist[n]->d_name))
+                    .c_str(),
+                name);
+            if (pname == name) {
+                struct stat path_stat;
+                stat(name, &path_stat);
+                if (S_ISCHR(path_stat.st_mode)) {
+                    rets.push_back(std::string(name));
+                }
+            }
+            free(namelist[n]);
+        }
+        free(namelist);
+    }
+    std::ifstream f;
+    f.open("/proc/tty/driver/serial");
+    if (!f.good()) {
+        int err = errno;
+        if (err == EACCES) {
+            std::cout << "Check local port need root permission" << std::endl;
+        } else {
+            std::cout << strerror(errno) << std::endl;
+        }
+    } else {
+        std::string line;
+        while (getline(f, line)) {
+            if (line.find("tx") != line.npos) {
+                std::string name = "/dev/ttyS";
+                line.erase(line.begin() + line.find_first_of(':'), line.end());
+                name += line;
+                struct stat path_stat;
+                stat(name.c_str(), &path_stat);
+                if (S_ISCHR(path_stat.st_mode)) {
+                    rets.push_back(std::string(name));
+                } else {
+                    std::transform(name.begin(), name.end(), name.begin(),
+                                   ::tolower);
+                    if (S_ISCHR(path_stat.st_mode)) {
+                        rets.push_back(std::string(name));
+                    }
+                }
+            }
+        }
+    }
+    f.close();
+#endif
+    return rets;
 }
 
 std::vector<std::pair<std::string, std::string>>
 SerialPort::GetPortNamesAndDescriptions() {
-    return std::vector<std::pair<std::string, std::string>>();
+    std::vector<std::pair<std::string, std::string>> rets;
+#ifdef __APPLE__
+
+    std::vector<std::string> ret;
+    kern_return_t kernResult;
+
+    io_iterator_t serialPortIterator;
+    // char deviceFilePath[PATH_MAX];
+
+    kernResult = MyFindModems(&serialPortIterator);
+    // while (serialPortIterator != 0) {
+    kernResult = MyGetModemPath(serialPortIterator, ret);
+    // serialPortIterator = IOIteratorNext(serialPortIterator);
+    // std::cout << deviceFilePath << std::endl;
+    // }
+    IOObjectRelease(serialPortIterator);  // Release the iterator.
+    for (auto& name : ret) {
+        name.erase(name.begin(), name.begin() + name.find_first_of("\"") + 1);
+        name.erase(name.begin() + name.find_first_of("\""), name.end());
+        if (name.find_first_of('.') != name.npos) {
+            rets.push_back(
+                {name, std::string(name.begin() + name.find_first_of('.') + 1,
+                                   name.end())});
+        }else{
+            rets.push_back(
+                {name, "Serial"});
+        }
+    }
+#else
+    struct dirent** namelist;
+    int n;
+
+    n = scandir("/dev/serial/by-id", &namelist, NULL, alphasort);
+    if (n == -1) {
+        return rets;
+    }
+
+    while (n--) {
+        char name[PATH_MAX];
+        auto* pname = realpath(
+            ("/dev/serial/by-id/" + std::string(namelist[n]->d_name)).c_str(),
+            name);
+        if (pname == name) {
+            struct stat path_stat;
+            stat(name, &path_stat);
+            if (S_ISCHR(path_stat.st_mode)) {
+                rets.push_back(
+                    {std::string(name), std::string(namelist[n]->d_name)});
+            }
+        }
+        free(namelist[n]);
+    }
+    free(namelist);
+    std::ifstream f;
+    f.open("/proc/tty/driver/serial");
+    if (!f.good()) {
+        int err = errno;
+        if (err == EACCES) {
+            std::cout << "Check local port need root permission" << std::endl;
+        } else {
+            std::cout << strerror(errno) << std::endl;
+        }
+    } else {
+        std::string line;
+        while (getline(f, line)) {
+            if (line.find("tx") != line.npos) {
+                std::string name = "/dev/ttyS";
+                line.erase(line.begin() + line.find_first_of(':'), line.end());
+                name += line;
+                struct stat path_stat;
+                stat(name.c_str(), &path_stat);
+                if (S_ISCHR(path_stat.st_mode)) {
+                    rets.push_back({std::string(name), "serial"});
+                } else {
+                    std::transform(name.begin(), name.end(), name.begin(),
+                                   ::tolower);
+                    if (S_ISCHR(path_stat.st_mode)) {
+                        rets.push_back({std::string(name), "serial"});
+                    }
+                }
+            }
+        }
+    }
+    f.close();
+#endif
+    return rets;
 }
 
 int SerialPort::Open() {

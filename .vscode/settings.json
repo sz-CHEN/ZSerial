@@ -73,6 +73,10 @@
         "climits": "cpp",
         "*.rh": "cpp",
         "__config": "cpp",
-        "__nullptr": "cpp"
+        "__nullptr": "cpp",
+        "csignal": "cpp",
+        "cstdarg": "cpp",
+        "numeric": "cpp",
+        "__split_buffer": "cpp"
     }
 }
