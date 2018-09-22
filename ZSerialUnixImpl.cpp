@@ -235,9 +235,8 @@ SerialPort::GetPortNamesAndDescriptions() {
             rets.push_back(
                 {name, std::string(name.begin() + name.find_first_of('.') + 1,
                                    name.end())});
-        }else{
-            rets.push_back(
-                {name, "Serial"});
+        } else {
+            rets.push_back({name, "Serial"});
         }
     }
 #else
@@ -246,25 +245,25 @@ SerialPort::GetPortNamesAndDescriptions() {
 
     n = scandir("/dev/serial/by-id", &namelist, NULL, alphasort);
     if (n == -1) {
-        return rets;
-    }
-
-    while (n--) {
-        char name[PATH_MAX];
-        auto* pname = realpath(
-            ("/dev/serial/by-id/" + std::string(namelist[n]->d_name)).c_str(),
-            name);
-        if (pname == name) {
-            struct stat path_stat;
-            stat(name, &path_stat);
-            if (S_ISCHR(path_stat.st_mode)) {
-                rets.push_back(
-                    {std::string(name), std::string(namelist[n]->d_name)});
+    } else {
+        while (n--) {
+            char name[PATH_MAX];
+            auto* pname = realpath(
+                ("/dev/serial/by-id/" + std::string(namelist[n]->d_name))
+                    .c_str(),
+                name);
+            if (pname == name) {
+                struct stat path_stat;
+                stat(name, &path_stat);
+                if (S_ISCHR(path_stat.st_mode)) {
+                    rets.push_back(
+                        {std::string(name), std::string(namelist[n]->d_name)});
+                }
             }
+            free(namelist[n]);
         }
-        free(namelist[n]);
+        free(namelist);
     }
-    free(namelist);
     std::ifstream f;
     f.open("/proc/tty/driver/serial");
     if (!f.good()) {
