@@ -8,15 +8,17 @@
 #pragma comment(lib, "setupapi.lib")
 namespace ZSerial {
 SerialPort::SerialPort(std::string portName, int baudrate, Parity parity,
-                       DataBits databits, StopBits stopbits)
+                       DataBits databits, StopBits stopbits,Handshake handshake)
     : portName(portName),
       baudrate(baudrate),
       parity(parity),
       databits(databits),
       stopbits(stopbits),
-      handshake(Handshake::None),
+      handshake(handshake),
       hcom(0),
-      opened(false) {}
+      opened(false){
+          
+      }
 SerialPort::~SerialPort() { Close(); }
 void SerialPort::Close() {
     CloseHandle(hcom);
@@ -44,7 +46,7 @@ std::vector<std::string> SerialPort::GetPortNames() {
     int i = 0;
     while (ERROR_SUCCESS ==
            RegEnumValueA(hKey, i++, buff, &nn, NULL, NULL, buf, &n)) {
-        std::string str(reinterpret_cast<char const*>(buf));
+        std::string str(reinterpret_cast<char const *>(buf));
         rets.push_back(str);
         // printf_s("%s\t%s\t\n", buf, buff);
         n = 256;
@@ -59,9 +61,9 @@ SerialPort::GetPortNamesAndDescriptions() {
     {
         std::vector<std::pair<std::string, std::string>> rets;
         std::string strErr;
-        GUID* guidDev = (GUID*)&GUID_CLASS_COMPORT;
+        GUID *guidDev = (GUID *)&GUID_CLASS_COMPORT;
         HDEVINFO hDevInfo = INVALID_HANDLE_VALUE;
-        SP_DEVICE_INTERFACE_DETAIL_DATA_A* pDetData = NULL;
+        SP_DEVICE_INTERFACE_DETAIL_DATA_A *pDetData = NULL;
         hDevInfo = SetupDiGetClassDevsA(guidDev, NULL, NULL,
                                         DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
         if (hDevInfo == INVALID_HANDLE_VALUE) {
@@ -70,7 +72,7 @@ SerialPort::GetPortNamesAndDescriptions() {
         BOOL bOk = TRUE;
         SP_DEVICE_INTERFACE_DATA ifcData;
         DWORD dwDetDataSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA) + 256;
-        pDetData = (SP_DEVICE_INTERFACE_DETAIL_DATA_A*)new char[dwDetDataSize];
+        pDetData = (SP_DEVICE_INTERFACE_DETAIL_DATA_A *)new char[dwDetDataSize];
         ifcData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
         pDetData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
         for (DWORD ii = 0; bOk; ii++) {
@@ -94,14 +96,13 @@ SerialPort::GetPortNamesAndDescriptions() {
                         name = std::string(iterS + 1, iterE);
                         rets.push_back({name, desc});
                     }
-
                 } else {
                 }
             } else {
                 return rets;
             }
         }
-        if (pDetData != NULL) delete[](char*) pDetData;
+        if (pDetData != NULL) delete[](char *) pDetData;
         if (hDevInfo != INVALID_HANDLE_VALUE)
             SetupDiDestroyDeviceInfoList(hDevInfo);
 
@@ -117,8 +118,8 @@ SerialPort::GetPortNamesAndDescriptions() {
     int i = 0;
     while (ERROR_SUCCESS ==
            RegEnumValueA(hKey, i++, buff, &nn, NULL, NULL, buf, &n)) {
-        std::string com(reinterpret_cast<char const*>(buf));
-        std::string des(reinterpret_cast<char const*>(buff));
+        std::string com(reinterpret_cast<char const *>(buf));
+        std::string des(reinterpret_cast<char const *>(buff));
         rets.push_back({com, des});
         // printf_s("%s\t%s\t\n", buf, buff);
         n = 256;
@@ -177,7 +178,7 @@ int SerialPort::Open() {
     opened = true;
     return 0;
 }
-int SerialPort::Read(char* buffer, int offset, int count) {
+int SerialPort::Read(char *buffer, int offset, int count) {
     unsigned long read = 0;
     ReadFile(hcom, buffer + offset, count, &read, NULL);
     return read;
@@ -218,7 +219,7 @@ std::string SerialPort::ReadLine() {
     }
 }
 
-void SerialPort::Write(char* buffer, int offset, int count) {
+void SerialPort::Write(char *buffer, int offset, int count) {
     DWORD write = 0;
     WriteFile(hcom, buffer + offset, count, &write, NULL);
 }
@@ -232,5 +233,205 @@ void SerialPort::WriteLine(std::string text) {
     WriteFile(hcom, &text[0], text.size(), &write, NULL);
 }
 bool SerialPort::IsOpen() { return opened; }
+int SerialPort::SetBaudRate(int baudrate) {
+    if (!IsOpen()) {
+        this->baudrate = baudrate;
+        return -1;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return 2;
+    }
+    dcb.BaudRate = baudrate;
+    if (!SetCommState(hcom, &dcb)) {
+        return 7;
+    }
+    this->baudrate = baudrate;
+    return 0;
+}
+int SerialPort::SetParity(Parity parity) {
+    if (!IsOpen()) {
+        this->parity = parity;
+        return -1;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return 2;
+    }
+    dcb.Parity = (int)parity;
+    if (!SetCommState(hcom, &dcb)) {
+        return 7;
+    }
+    this->parity = parity;
+    return 0;
+}
+int SerialPort::SetDataBits(DataBits databits) {
+    if (!IsOpen()) {
+        this->databits = databits;
+        return -1;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return 2;
+    }
+    dcb.ByteSize = (BYTE)databits;
+    if (!SetCommState(hcom, &dcb)) {
+        return 7;
+    }
+    this->databits = databits;
+    return 0;
+}
+int SerialPort::SetStopBits(StopBits stopbits) {
+    if (!IsOpen()) {
+        this->stopbits = stopbits;
+        return -1;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return 2;
+    }
+    dcb.StopBits = (BYTE)stopbits;
+    if (!SetCommState(hcom, &dcb)) {
+        return 7;
+    }
+    this->stopbits = stopbits;
+    return 0;
+}
+int SerialPort::SetHandshake(Handshake handshake) {
+    if (!IsOpen()) {
+        this->handshake = handshake;
+        return -1;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return 2;
+    }
+    switch (handshake) {
+        case Handshake::None:
+            dcb.fRtsControl = RTS_CONTROL_DISABLE;
+            dcb.fOutX = false;
+            dcb.fInX = false;
+            break;
+        case Handshake::RequestToSend:
+            dcb.fRtsControl = RTS_CONTROL_ENABLE;
+            dcb.fOutX = false;
+            dcb.fInX = false;
+            break;
+        case Handshake::RequestToSendXOnXOff:
+            dcb.fRtsControl = RTS_CONTROL_ENABLE;
+            dcb.fOutX = true;
+            dcb.fInX = true;
+            break;
+        case Handshake::XOnXOff:
+            dcb.fRtsControl = RTS_CONTROL_DISABLE;
+            dcb.fOutX = true;
+            dcb.fInX = true;
+            break;
+        default:
+            return 6;
+    }
+    if (!SetCommState(hcom, &dcb)) {
+        return 7;
+    }
+    this->handshake = handshake;
+    return 0;
+}
+int SerialPort::GetBaudRate() {
+    if (!IsOpen()) {
+        return baudrate;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return -2;
+    }
+    baudrate = dcb.BaudRate;
+    return baudrate;
+}
+Parity SerialPort::GetParity() {
+    if (!IsOpen()) {
+        return parity;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return (Parity)-2;
+    }
+    parity = (Parity)dcb.Parity;
+    return parity;
+}
+DataBits SerialPort::GetDataBits() {
+    if (!IsOpen()) {
+        return databits;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return (DataBits)-2;
+    }
+    databits = (DataBits)dcb.ByteSize;
+    return databits;
+}
+StopBits SerialPort::GetStopBits() {
+    if (!IsOpen()) {
+        return stopbits;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return (StopBits)-2;
+    }
+    stopbits = (StopBits)dcb.StopBits;
+    return stopbits;
+}
+Handshake SerialPort::GetHandshake() {
+    if (!IsOpen()) {
+        return handshake;
+    }
+    DCB dcb;
+    SecureZeroMemory(&dcb, sizeof(DCB));
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(hcom, &dcb)) {
+        return (Handshake)-2;
+    }
+    if (dcb.fRtsControl == RTS_CONTROL_DISABLE) {
+        if (dcb.fOutX && dcb.fInX) {
+            handshake = Handshake::XOnXOff;
+        } else {
+            if (dcb.fOutX || dcb.fInX) {
+                return (Handshake)-6;
+            } else {
+                handshake = Handshake::None;
+            }
+        }
+    } else if (dcb.fRtsControl == RTS_CONTROL_ENABLE) {
+        if (dcb.fOutX && dcb.fInX) {
+            handshake = Handshake::RequestToSendXOnXOff;
+        } else {
+            if (dcb.fOutX || dcb.fInX) {
+                return (Handshake)-6;
+            } else {
+                handshake = Handshake::RequestToSend;
+            }
+        }
+    } else {
+        return (Handshake)-6;
+    }
+    return handshake;
+}
 }  // namespace ZSerial
 #endif

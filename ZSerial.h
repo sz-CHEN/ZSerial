@@ -41,8 +41,6 @@ enum class Handshake : int {
 class DLL_EXPORT SerialPort {
    private:
     bool opened;
-
-   public:
     void* hcom;
     std::string portName;
     int baudrate;
@@ -50,9 +48,12 @@ class DLL_EXPORT SerialPort {
     StopBits stopbits;
     DataBits databits;
     Handshake handshake;
+
+   public:
     SerialPort(std::string portName, int baudrate, Parity parity = Parity::None,
                DataBits databits = DataBits::DB_8,
-               StopBits stopbits = StopBits::One);
+               StopBits stopbits = StopBits::One,
+               Handshake handshake = Handshake::None);
     ~SerialPort();
     void Close();
     bool IsOpen();
@@ -69,6 +70,16 @@ class DLL_EXPORT SerialPort {
     void Write(char* buffer, int offset, int count);
     void Write(std::string text);
     void WriteLine(std::string text);
+    int SetBaudRate(int baudrate);
+    int SetParity(Parity parity);
+    int SetDataBits(DataBits databits);
+    int SetStopBits(StopBits stopbits);
+    int SetHandshake(Handshake handshake);
+    int GetBaudRate();
+    Parity GetParity();
+    DataBits GetDataBits();
+    StopBits GetStopBits();
+    Handshake GetHandshake();
 };
 }  // nameSpace ZSerial
 #endif

@@ -16,7 +16,7 @@
             "environment": [],
             "externalConsole": true,
             "osx": {
-                "miDebuggerPath": "/usr/local/Cellar/llvm/6.0.1/bin/lldb-mi",
+                // "miDebuggerPath": "/usr/local/Cellar/llvm/6.0.1/bin/lldb-mi",
                 "MIMode": "lldb"
             },
             "linux": {

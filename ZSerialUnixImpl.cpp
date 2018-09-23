@@ -114,13 +114,14 @@ static kern_return_t MyGetModemPath(io_iterator_t serialPortIterator,
 
 #endif
 SerialPort::SerialPort(std::string portName, int baudrate, Parity parity,
-                       DataBits databits, StopBits stopbits)
+                       DataBits databits, StopBits stopbits,
+                       Handshake handshake)
     : portName(portName),
       baudrate(baudrate),
       parity(parity),
       databits(databits),
       stopbits(stopbits),
-      handshake(Handshake::None),
+      handshake(handshake),
       hcom(0),
       opened(false) {}
 SerialPort::~SerialPort() { Close(); }
@@ -454,5 +455,297 @@ void SerialPort::WriteLine(std::string text) {
     write((intptr_t)hcom, text.data(), text.size());
 }
 bool SerialPort::IsOpen() { return opened; }
+int SerialPort::SetBaudRate(int baudrate) {
+    if (!IsOpen()) {
+        this->baudrate = baudrate;
+        return -1;
+    }
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return 2;
+    }
+    cfsetospeed(&options, baudrate);
+    cfsetispeed(&options, baudrate);
+    if (tcsetattr((intptr_t)hcom, TCSANOW, &options) != 0) {
+        // printf("error %d from tcsetattr", errno);
+        return 7;
+    }
+    this->baudrate = baudrate;
+    return 0;
+}
+int SerialPort::SetParity(Parity parity) {
+    if (!IsOpen()) {
+        this->parity = parity;
+        return -1;
+    }
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return 2;
+    }
+    switch (parity) {
+        case Parity ::None:
+            options.c_cflag &= ~PARENB;
+            break;
+        case Parity ::Odd:
+            options.c_cflag |= (PARENB | PARODD);
+            break;
+        case Parity ::Even:
+            options.c_cflag |= PARENB;
+            options.c_cflag &= ~PARODD;
+            break;
+#ifdef CMSPAR
+        case Parity ::Mark:
+            options.c_cflag |= (PARENB | PARODD | CMSPAR);
+            break;
+        case Parity ::Space:
+            options.c_cflag |= (PARENB | CMSPAR);
+            options.c_cflag &= ~PARODD;
+            break;
+#endif
+        default:
+            // printf("parity error\n");
+            return 3;
+    }
+    if (tcsetattr((intptr_t)hcom, TCSANOW, &options) != 0) {
+        // printf("error %d from tcsetattr", errno);
+        return 7;
+    }
+    this->parity = parity;
+    return 0;
+}
+int SerialPort::SetDataBits(DataBits databits) {
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return 2;
+    }
+    switch (databits) {
+        case DataBits::DB_8:
+            options.c_cflag = (options.c_cflag & ~CSIZE) | CS8;
+            break;
+        case DataBits::DB_7:
+            options.c_cflag = (options.c_cflag & ~CSIZE) | CS7;
+            break;
+        case DataBits::DB_6:
+            options.c_cflag = (options.c_cflag & ~CSIZE) | CS6;
+            break;
+        case DataBits::DB_5:
+            options.c_cflag = (options.c_cflag & ~CSIZE) | CS5;
+            break;
+        default:
+            // printf("\nbytesize error\n");
+            return 4;
+    }
+    if (tcsetattr((intptr_t)hcom, TCSANOW, &options) != 0) {
+        // printf("error %d from tcsetattr", errno);
+        return 7;
+    }
+    this->databits = databits;
+    return 0;
+}
+int SerialPort::SetStopBits(StopBits stopbits) {
+    if (!IsOpen()) {
+        this->stopbits = stopbits;
+        return -1;
+    }
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return 2;
+    }
+    switch (stopbits) {
+        case StopBits::One:
+            options.c_cflag &= ~CSTOPB;
+            break;
+        case StopBits::Two:
+            options.c_cflag |= CSTOPB;
+            break;
+        case StopBits::OnePointFive:
+        case StopBits::None:
+        default:
+            // printf("stopbit error\n");
+            return 5;
+    }
+    if (tcsetattr((intptr_t)hcom, TCSANOW, &options) != 0) {
+        // printf("error %d from tcsetattr", errno);
+        return 7;
+    }
+    this->stopbits = stopbits;
+    return 0;
+}
+
+int SerialPort::SetHandshake(Handshake handshake) {
+    if (!IsOpen()) {
+        this->handshake = handshake;
+        return -1;
+    }
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return 2;
+    }
+    switch (handshake) {
+        case Handshake::None:
+            options.c_iflag &= ~(IXON | IXOFF | IXANY);
+            options.c_cflag &= ~CRTSCTS;
+            break;
+        case Handshake::RequestToSend:
+            options.c_iflag &= ~(IXON | IXOFF | IXANY);
+            options.c_cflag |= CRTSCTS;
+            break;
+        case Handshake::RequestToSendXOnXOff:
+            options.c_iflag |= (IXON | IXOFF | IXANY);
+            options.c_cflag |= CRTSCTS;
+            break;
+        case Handshake::XOnXOff:
+            options.c_iflag |= (IXON | IXOFF | IXANY);
+            options.c_cflag &= ~CRTSCTS;
+            break;
+        default:
+            return 6;
+    }
+    if (tcsetattr((intptr_t)hcom, TCSANOW, &options) != 0) {
+        // printf("error %d from tcsetattr", errno);
+        return 7;
+    }
+    this->handshake = handshake;
+    return 0;
+}
+
+int SerialPort::GetBaudRate() {
+    if (!IsOpen()) {
+        return baudrate;
+    }
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return -2;
+    }
+    baudrate = cfgetospeed(&options);
+    return baudrate;
+}
+Parity SerialPort::GetParity() {
+    if (!IsOpen()) {
+        return parity;
+    }
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return (Parity)-2;
+    }
+    if ((options.c_cflag & PARENB) == 0) {
+        parity = Parity::None;
+    } else if ((options.c_cflag & PARODD) == 0) {
+#ifdef CMSPAR
+        if (options.c_cflag & CMSPAR == 0) {
+            parity = Parity::Even;
+        } else {
+            parity = Parity::Space;
+        }
+#else
+        parity = Parity::Even;
+#endif
+    } else {
+#ifdef CMSPAR
+        if (options.c_cflag & CMSPAR == 0) {
+            parity = Parity::Odd;
+        } else {
+            parity = Parity::Mark;
+        }
+#else
+        parity = Parity::Odd;
+#endif
+    }
+    return parity;
+}
+DataBits SerialPort::GetDataBits() {
+    if (!IsOpen()) {
+        return databits;
+    }
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return (DataBits)-2;
+    }
+    switch (options.c_cflag & CSIZE) {
+        case CS8:
+            databits = DataBits::DB_8;
+            break;
+        case CS7:
+            databits = DataBits::DB_7;
+            break;
+        case CS6:
+            databits = DataBits::DB_6;
+            break;
+        case CS5:
+            databits = DataBits::DB_5;
+            break;
+        default:
+            return (DataBits)-4;
+    }
+    return databits;
+}
+StopBits SerialPort::GetStopBits() {
+    if (!IsOpen()) {
+        return stopbits;
+    }
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return (StopBits)-2;
+    }
+    if ((options.c_cflag & CSTOPB) == 0) {
+        stopbits = StopBits::One;
+    } else {
+        stopbits = StopBits::Two;
+    }
+    return stopbits;
+}
+Handshake SerialPort::GetHandshake() {
+    if (!IsOpen()) {
+        return handshake;
+    }
+    struct termios options;
+    memset(&options, 0, sizeof(options));
+    if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        // printf("tcgetattr %s error\n",portName.c_str());
+        return (Handshake)-2;
+    }
+    int32_t crtscts;
+    int32_t ix;
+    if ((crtscts = options.c_cflag & CRTSCTS) == CRTSCTS) {
+        if ((ix = (options.c_iflag & (IXON | IXOFF | IXANY)) ==
+                  (IXOFF | IXON | IXANY))) {
+            handshake = Handshake::RequestToSendXOnXOff;
+        } else if (ix == 0) {
+            handshake = Handshake::RequestToSend;
+        } else {
+            return (Handshake)-6;
+        }
+    } else if (crtscts == 0) {
+        if ((ix = (options.c_iflag & (IXON | IXOFF | IXANY)) ==
+                  (IXOFF | IXON | IXANY))) {
+            handshake = Handshake::XOnXOff;
+        } else if (ix == 0) {
+            handshake = Handshake::None;
+        } else {
+            return (Handshake)-6;
+        }
+    } else {
+        return (Handshake)-6;
+    }
+    return handshake;
+}
 }  // namespace ZSerial
 #endif
