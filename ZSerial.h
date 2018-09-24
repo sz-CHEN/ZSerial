@@ -70,11 +70,13 @@ class DLL_EXPORT SerialPort {
     void Write(char* buffer, int offset, int count);
     void Write(std::string text);
     void WriteLine(std::string text);
+    int SetPort(std::string port);
     int SetBaudRate(int baudrate);
     int SetParity(Parity parity);
     int SetDataBits(DataBits databits);
     int SetStopBits(StopBits stopbits);
     int SetHandshake(Handshake handshake);
+    std::string GetPort();
     int GetBaudRate();
     Parity GetParity();
     DataBits GetDataBits();

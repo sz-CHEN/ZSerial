@@ -8,7 +8,8 @@
 #pragma comment(lib, "setupapi.lib")
 namespace ZSerial {
 SerialPort::SerialPort(std::string portName, int baudrate, Parity parity,
-                       DataBits databits, StopBits stopbits,Handshake handshake)
+                       DataBits databits, StopBits stopbits,
+                       Handshake handshake)
     : portName(portName),
       baudrate(baudrate),
       parity(parity),
@@ -16,9 +17,7 @@ SerialPort::SerialPort(std::string portName, int baudrate, Parity parity,
       stopbits(stopbits),
       handshake(handshake),
       hcom(0),
-      opened(false){
-          
-      }
+      opened(false) {}
 SerialPort::~SerialPort() { Close(); }
 void SerialPort::Close() {
     CloseHandle(hcom);
@@ -233,6 +232,14 @@ void SerialPort::WriteLine(std::string text) {
     WriteFile(hcom, &text[0], text.size(), &write, NULL);
 }
 bool SerialPort::IsOpen() { return opened; }
+int SerialPort::SetPort(std::string port) {
+    if (IsOpen()) {
+        return -1;
+    } else {
+        this->portName = port;
+        return 0;
+    }
+}
 int SerialPort::SetBaudRate(int baudrate) {
     if (!IsOpen()) {
         this->baudrate = baudrate;
@@ -346,6 +353,8 @@ int SerialPort::SetHandshake(Handshake handshake) {
     this->handshake = handshake;
     return 0;
 }
+
+std::string SerialPort::GetPort() { return this->portName; }
 int SerialPort::GetBaudRate() {
     if (!IsOpen()) {
         return baudrate;

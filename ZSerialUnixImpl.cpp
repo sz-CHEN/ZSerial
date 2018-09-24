@@ -418,8 +418,10 @@ char SerialPort::ReadByte() {
 }
 std::string SerialPort::ReadExisting() {
     fcntl((intptr_t)hcom, F_SETFL, FNDELAY);
-    int bytes_available;
-    ioctl((intptr_t)hcom, FIONREAD, &bytes_available);
+    int bytes_available = 0;
+    if (ioctl((intptr_t)hcom, FIONREAD, &bytes_available) < 0) {
+        printf("%s", strerror(errno));
+    }
     std::string ret(bytes_available, 0);
     auto sz = read((intptr_t)hcom, &ret[0], bytes_available);
     ret.resize(sz);
@@ -455,6 +457,16 @@ void SerialPort::WriteLine(std::string text) {
     write((intptr_t)hcom, text.data(), text.size());
 }
 bool SerialPort::IsOpen() { return opened; }
+
+int SerialPort::SetPort(std::string port) {
+    if (IsOpen()) {
+        return -1;
+    } else {
+        this->portName = port;
+        return 0;
+    }
+}
+
 int SerialPort::SetBaudRate(int baudrate) {
     if (!IsOpen()) {
         this->baudrate = baudrate;
@@ -618,6 +630,8 @@ int SerialPort::SetHandshake(Handshake handshake) {
     this->handshake = handshake;
     return 0;
 }
+
+std::string SerialPort::GetPort() { return this->portName; }
 
 int SerialPort::GetBaudRate() {
     if (!IsOpen()) {
