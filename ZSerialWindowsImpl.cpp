@@ -4,6 +4,8 @@
 #endif
 #include <SetupAPI.h>
 #include <process.h>
+#pragma push_macro("SendMessage")
+#undef SetPort
 #include "ZSerial.h"
 #pragma comment(lib, "setupapi.lib")
 namespace ZSerial {
@@ -141,6 +143,7 @@ int SerialPort::Open() {
     SecureZeroMemory(&dcb, sizeof(DCB));
     dcb.DCBlength = sizeof(DCB);
     if (!GetCommState(hcom, &dcb)) {
+        Close();
         return 2;
     }
     dcb.BaudRate = (int)baudrate;
@@ -150,21 +153,25 @@ int SerialPort::Open() {
     switch (handshake) {
         case Handshake::None:
             dcb.fRtsControl = RTS_CONTROL_DISABLE;
+            dcb.fOutxCtsFlow=FALSE;
             dcb.fOutX = false;
             dcb.fInX = false;
             break;
         case Handshake::RequestToSend:
-            dcb.fRtsControl = RTS_CONTROL_ENABLE;
+            dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
+            dcb.fOutxCtsFlow=TRUE;
             dcb.fOutX = false;
             dcb.fInX = false;
             break;
         case Handshake::RequestToSendXOnXOff:
-            dcb.fRtsControl = RTS_CONTROL_ENABLE;
+            dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
+            dcb.fOutxCtsFlow=TRUE;
             dcb.fOutX = true;
             dcb.fInX = true;
             break;
         case Handshake::XOnXOff:
             dcb.fRtsControl = RTS_CONTROL_DISABLE;
+            dcb.fOutxCtsFlow=FALSE;
             dcb.fOutX = true;
             dcb.fInX = true;
             break;
@@ -172,6 +179,7 @@ int SerialPort::Open() {
             return 6;
     }
     if (!SetCommState(hcom, &dcb)) {
+        Close();
         return 7;
     }
     opened = true;
@@ -326,21 +334,25 @@ int SerialPort::SetHandshake(Handshake handshake) {
     switch (handshake) {
         case Handshake::None:
             dcb.fRtsControl = RTS_CONTROL_DISABLE;
+            dcb.fOutxCtsFlow=FALSE;
             dcb.fOutX = false;
             dcb.fInX = false;
             break;
         case Handshake::RequestToSend:
-            dcb.fRtsControl = RTS_CONTROL_ENABLE;
+            dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
+            dcb.fOutxCtsFlow=TRUE;
             dcb.fOutX = false;
             dcb.fInX = false;
             break;
         case Handshake::RequestToSendXOnXOff:
-            dcb.fRtsControl = RTS_CONTROL_ENABLE;
+            dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
+            dcb.fOutxCtsFlow=TRUE;
             dcb.fOutX = true;
             dcb.fInX = true;
             break;
         case Handshake::XOnXOff:
             dcb.fRtsControl = RTS_CONTROL_DISABLE;
+            dcb.fOutxCtsFlow=FALSE;
             dcb.fOutX = true;
             dcb.fInX = true;
             break;
@@ -418,20 +430,20 @@ Handshake SerialPort::GetHandshake() {
         return (Handshake)-2;
     }
     if (dcb.fRtsControl == RTS_CONTROL_DISABLE) {
-        if (dcb.fOutX && dcb.fInX) {
+        if (dcb.fOutX && dcb.fInX && !dcb.fOutxCtsFlow) {
             handshake = Handshake::XOnXOff;
         } else {
-            if (dcb.fOutX || dcb.fInX) {
+            if (dcb.fOutX || dcb.fInX || dcb.fOutxCtsFlow) {
                 return (Handshake)-6;
             } else {
                 handshake = Handshake::None;
             }
         }
-    } else if (dcb.fRtsControl == RTS_CONTROL_ENABLE) {
-        if (dcb.fOutX && dcb.fInX) {
+    } else if (dcb.fRtsControl == RTS_CONTROL_HANDSHAKE) {
+        if (dcb.fOutX && dcb.fInX && dcb.fOutxCtsFlow) {
             handshake = Handshake::RequestToSendXOnXOff;
         } else {
-            if (dcb.fOutX || dcb.fInX) {
+            if (dcb.fOutX || dcb.fInX || !dcb.fOutxCtsFlow) {
                 return (Handshake)-6;
             } else {
                 handshake = Handshake::RequestToSend;
@@ -443,4 +455,5 @@ Handshake SerialPort::GetHandshake() {
     return handshake;
 }
 }  // namespace ZSerial
+#pragma pop_macro("SetPort")
 #endif

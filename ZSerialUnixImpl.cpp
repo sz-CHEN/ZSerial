@@ -311,6 +311,7 @@ int SerialPort::Open() {
     struct termios options;
     memset(&options, 0, sizeof(options));
     if (tcgetattr((intptr_t)hcom, &options) != 0) {
+        Close();
         // printf("tcgetattr %s error\n",portName.c_str());
         return 2;
     }
@@ -401,6 +402,7 @@ int SerialPort::Open() {
     options.c_iflag &= ~IGNBRK;
     options.c_lflag = 0;
     if (tcsetattr((intptr_t)hcom, TCSANOW, &options) != 0) {
+        Close();
         // printf("error %d from tcsetattr", errno);
         return 7;
     }
