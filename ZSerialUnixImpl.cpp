@@ -419,16 +419,46 @@ char SerialPort::ReadByte() {
     return c;
 }
 std::string SerialPort::ReadExisting() {
-    fcntl((intptr_t)hcom, F_SETFL, FNDELAY);
+    // #ifndef __APPLE__
     int bytes_available = 0;
-    if (ioctl((intptr_t)hcom, FIONREAD, &bytes_available) < 0) {
+    if (ioctl((intptr_t)hcom, TIOCOUTQ, &bytes_available) < 0) {
         printf("%s", strerror(errno));
     }
     std::string ret(bytes_available, 0);
     auto sz = read((intptr_t)hcom, &ret[0], bytes_available);
     ret.resize(sz);
-    fcntl((intptr_t)hcom, F_SETFL, 0);
     return ret;
+    // #else
+    //     fd_set rfds;
+    //     struct timeval tv;
+    //     int retval;
+    //     FD_ZERO(&rfds);
+    //     FD_SET((intptr_t)hcom, &rfds);
+    //     tv.tv_sec = 0;
+    //     tv.tv_usec = 0;
+    //     retval = select((intptr_t)hcom + 1, &rfds, NULL, NULL, &tv);
+    //     if (retval > 0) {
+    //         if (FD_ISSET((intptr_t)hcom, &rfds)) {
+    //             std::string ret;
+    //             char c;
+    //             fcntl((intptr_t)hcom, F_SETFL, FNDELAY);
+    //             while (read((intptr_t)hcom, &c, 1) > 0) {
+    //                 ret.push_back(c);
+    //             }
+    //             // int bytes_available = 0;
+    //             // if (ioctl((intptr_t)hcom, TIOCOUTQ, &bytes_available) < 0)
+    //             {
+    //             //     printf("%s", strerror(errno));
+    //             // }
+    //             // std::string ret(bytes_available, 0);
+    //             // auto sz = read((intptr_t)hcom, &ret[0], bytes_available);
+    //             // ret.resize(sz);
+    //             fcntl((intptr_t)hcom, F_SETFL, 0);
+    //             return ret;
+    //         }
+    //     }
+    //     return "";
+    // #endif
 }
 
 std::string SerialPort::ReadLine() {
@@ -454,8 +484,9 @@ void SerialPort::Write(char* buffer, int offset, int count) {
 void SerialPort::Write(std::string text) {
     write((intptr_t)hcom, text.data(), text.size());
 }
-void SerialPort::WriteLine(std::string text) {
-    text += "\r\n";
+void SerialPort::WriteLine(std::string text, bool hasCR) {
+    if (hasCR) text += '\r';
+    text += '\n';
     write((intptr_t)hcom, text.data(), text.size());
 }
 bool SerialPort::IsOpen() { return opened; }

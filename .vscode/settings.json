@@ -78,6 +78,9 @@
         "cstdarg": "cpp",
         "numeric": "cpp",
         "__split_buffer": "cpp",
-        "__locale": "cpp"
+        "__locale": "cpp",
+        "__tree": "cpp",
+        "map": "cpp",
+        "set": "cpp"
     }
 }

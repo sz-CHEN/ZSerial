@@ -69,7 +69,11 @@ class DLL_EXPORT SerialPort {
     std::string ReadLine();
     void Write(char* buffer, int offset, int count);
     void Write(std::string text);
-    void WriteLine(std::string text);
+#ifdef _WIN32
+    void WriteLine(std::string text, bool hasCR = true);
+#else
+    void WriteLine(std::string text, bool hasCR = false);
+#endif
     int SetPortName(std::string port);
     int SetBaudRate(int baudrate);
     int SetParity(Parity parity);

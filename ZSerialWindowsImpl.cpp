@@ -263,8 +263,9 @@ void SerialPort::Write(std::string text) {
     DWORD write = 0;
     WriteFile(hcom, &text[0], text.size(), &write, NULL);
 }
-void SerialPort::WriteLine(std::string text) {
-    text += "\r\n";
+void SerialPort::WriteLine(std::string text, bool hasCR) {
+    if (hasCR) text += '\r';
+    text += '\n';
     unsigned long write = 0;
     WriteFile(hcom, &text[0], text.size(), &write, NULL);
 }
