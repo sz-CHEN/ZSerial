@@ -4,8 +4,6 @@
 #endif
 #include <SetupAPI.h>
 #include <process.h>
-#pragma push_macro("SendMessage")
-#undef SetPort
 #include "ZSerial.h"
 #pragma comment(lib, "setupapi.lib")
 namespace ZSerial {
@@ -271,7 +269,7 @@ void SerialPort::WriteLine(std::string text) {
     WriteFile(hcom, &text[0], text.size(), &write, NULL);
 }
 bool SerialPort::IsOpen() { return opened; }
-int SerialPort::SetPort(std::string port) {
+int SerialPort::SetPortName(std::string port) {
     if (IsOpen()) {
         return -1;
     } else {
@@ -397,7 +395,7 @@ int SerialPort::SetHandshake(Handshake handshake) {
     return 0;
 }
 
-std::string SerialPort::GetPort() { return this->portName; }
+std::string SerialPort::GetPortName() { return this->portName; }
 int SerialPort::GetBaudRate() {
     if (!IsOpen()) {
         return baudrate;
@@ -486,5 +484,4 @@ Handshake SerialPort::GetHandshake() {
     return handshake;
 }
 }  // namespace ZSerial
-#pragma pop_macro("SetPort")
 #endif

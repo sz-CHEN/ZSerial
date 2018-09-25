@@ -460,7 +460,7 @@ void SerialPort::WriteLine(std::string text) {
 }
 bool SerialPort::IsOpen() { return opened; }
 
-int SerialPort::SetPort(std::string port) {
+int SerialPort::SetPortName(std::string port) {
     if (IsOpen()) {
         return -1;
     } else {
@@ -633,7 +633,7 @@ int SerialPort::SetHandshake(Handshake handshake) {
     return 0;
 }
 
-std::string SerialPort::GetPort() { return this->portName; }
+std::string SerialPort::GetPortName() { return this->portName; }
 
 int SerialPort::GetBaudRate() {
     if (!IsOpen()) {
