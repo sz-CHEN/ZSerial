@@ -3,12 +3,12 @@
 #include "ZSerial.h"
 using namespace ZSerial;
 int main(int argc, char const* argv[]) {
-    auto a = SerialPort::GetPortNamesAndDescriptions();
+    auto a = SerialPort::GetPortNames();
     for (auto& r : a) {
-        std::cout << r.first <<"\t"<< std::endl;
+        std::cout << r <<"\t"<< std::endl;
     }
     // return 0;
-    SerialPort serial("/dev/ttyp1", (int)BaudRate::BR_115200);
+    SerialPort serial(a[1], (int)BaudRate::BR_115200);
     if (serial.Open() != 0) {
         printf("err\n");
         printf(strerror(errno));

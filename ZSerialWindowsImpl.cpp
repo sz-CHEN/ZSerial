@@ -38,96 +38,127 @@ void SerialPort::DiscardOutBuffer() {
 }
 std::vector<std::string> SerialPort::GetPortNames() {
     std::vector<std::string> rets;
-    HKEY hKey;
-    RegOpenKeyA(HKEY_LOCAL_MACHINE, "HARDWARE\\DEVICEMAP\\SERIALCOMM\\", &hKey);
-    unsigned char buf[256];
-    char buff[256];
-    DWORD n = 256;
-    DWORD nn = 256;
-    int i = 0;
-    while (ERROR_SUCCESS ==
-           RegEnumValueA(hKey, i++, buff, &nn, NULL, NULL, buf, &n)) {
-        std::string str(reinterpret_cast<char const *>(buf));
-        rets.push_back(str);
-        // printf_s("%s\t%s\t\n", buf, buff);
-        n = 256;
-        nn = 256;
+    std::string strErr;
+    GUID *guidDev = (GUID *)&GUID_CLASS_COMPORT;
+    HDEVINFO hDevInfoSet = INVALID_HANDLE_VALUE;
+    hDevInfoSet = SetupDiGetClassDevsA(guidDev, NULL, NULL,
+                                       DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+    if (hDevInfoSet == INVALID_HANDLE_VALUE) {
+        return rets;
     }
-    // printf_s("\n");
+    bool bMoreItems = true;
+    int nIndex = 0;
+    SP_DEVINFO_DATA devInfo = {0};
+    while (bMoreItems) {
+        // Enumerate the current device
+        devInfo.cbSize = sizeof(SP_DEVINFO_DATA);
+        bMoreItems = SetupDiEnumDeviceInfo(hDevInfoSet, nIndex, &devInfo);
+        if (bMoreItems) {
+            // Did we find a serial port for this device
+            bool bAdded = false;
+
+            HKEY deviceKey =
+                SetupDiOpenDevRegKey(hDevInfoSet, &devInfo, DICS_FLAG_GLOBAL, 0,
+                                     DIREG_DEV, KEY_QUERY_VALUE);
+            if (deviceKey != INVALID_HANDLE_VALUE) {
+                int nPort = 0;
+                DWORD dwType, dwSize;
+                dwSize = MAX_PATH;
+                char pszValue[MAX_PATH];
+                char sFriendlyName[MAX_PATH];
+                ULONG nBytes;
+                auto lRes =
+                    RegQueryValueExA(deviceKey, "PortName", nullptr, &dwType,
+                                     (LPBYTE)pszValue, &nBytes);
+
+                if (lRes == ERROR_SUCCESS &&
+                    !(dwType != REG_SZ && dwType != REG_EXPAND_SZ)) {
+                    if (nBytes != 0) {
+                        std::string name(pszValue);
+                        rets.push_back(name);
+                    }
+                }
+            }
+            RegCloseKey(deviceKey);
+        }
+        ++nIndex;
+    }
+    SetupDiDestroyDeviceInfoList(hDevInfoSet);
     return rets;
+    // HKEY hKey;
+    // RegOpenKeyA(HKEY_LOCAL_MACHINE, "HARDWARE\\DEVICEMAP\\SERIALCOMM\\",
+    // &hKey); unsigned char buf[256]; char buff[256]; DWORD n = 256; DWORD nn =
+    // 256; int i = 0; while (ERROR_SUCCESS ==
+    //        RegEnumValueA(hKey, i++, buff, &nn, NULL, NULL, buf, &n)) {
+    //     std::string str(reinterpret_cast<char const *>(buf));
+    //     rets.push_back(str);
+    //     // printf_s("%s\t%s\t\n", buf, buff);
+    //     n = 256;
+    //     nn = 256;
+    // }
+    // RegCloseKey(hKey);
+    // // printf_s("\n");
+    // return rets;
 }
 
 std::vector<std::pair<std::string, std::string>>
 SerialPort::GetPortNamesAndDescriptions() {
-    {
-        std::vector<std::pair<std::string, std::string>> rets;
-        std::string strErr;
-        GUID *guidDev = (GUID *)&GUID_CLASS_COMPORT;
-        HDEVINFO hDevInfo = INVALID_HANDLE_VALUE;
-        SP_DEVICE_INTERFACE_DETAIL_DATA_A *pDetData = NULL;
-        hDevInfo = SetupDiGetClassDevsA(guidDev, NULL, NULL,
-                                        DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
-        if (hDevInfo == INVALID_HANDLE_VALUE) {
-            return rets;
-        }
-        BOOL bOk = TRUE;
-        SP_DEVICE_INTERFACE_DATA ifcData;
-        DWORD dwDetDataSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA) + 256;
-        pDetData = (SP_DEVICE_INTERFACE_DETAIL_DATA_A *)new char[dwDetDataSize];
-        ifcData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-        pDetData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-        for (DWORD ii = 0; bOk; ii++) {
-            bOk = SetupDiEnumDeviceInterfaces(hDevInfo, NULL, guidDev, ii,
-                                              &ifcData);
-            if (bOk) {
-                SP_DEVINFO_DATA devdata = {sizeof(SP_DEVINFO_DATA)};
-                bOk = SetupDiGetDeviceInterfaceDetailA(hDevInfo, &ifcData,
-                                                       pDetData, dwDetDataSize,
-                                                       NULL, &devdata);
-                if (bOk) {
-                    char fname[256];
-                    auto bSuccess = SetupDiGetDeviceRegistryPropertyA(
-                        hDevInfo, &devdata, SPDRP_FRIENDLYNAME, NULL,
-                        (PBYTE)fname, sizeof(fname), NULL);
-                    if (bSuccess) {
-                        std::string name(fname);
-                        auto iterS = name.find("(") + name.begin();
-                        auto iterE = name.find(")") + name.begin();
-                        std::string desc(name.begin(), iterS);
-                        name = std::string(iterS + 1, iterE);
-                        rets.push_back({name, desc});
-                    }
-                } else {
-                }
-            } else {
-                return rets;
-            }
-        }
-        if (pDetData != NULL) delete[](char *) pDetData;
-        if (hDevInfo != INVALID_HANDLE_VALUE)
-            SetupDiDestroyDeviceInfoList(hDevInfo);
-
+    std::vector<std::pair<std::string, std::string>> rets;
+    std::string strErr;
+    GUID *guidDev = (GUID *)&GUID_CLASS_COMPORT;
+    HDEVINFO hDevInfoSet = INVALID_HANDLE_VALUE;
+    hDevInfoSet = SetupDiGetClassDevsA(guidDev, NULL, NULL,
+                                       DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+    if (hDevInfoSet == INVALID_HANDLE_VALUE) {
         return rets;
     }
-    std::vector<std::pair<std::string, std::string>> rets;
-    HKEY hKey;
-    RegOpenKeyA(HKEY_LOCAL_MACHINE, "HARDWARE\\DEVICEMAP\\SERIALCOMM\\", &hKey);
-    unsigned char buf[256];
-    char buff[256];
-    DWORD n = 256;
-    DWORD nn = 256;
-    int i = 0;
-    while (ERROR_SUCCESS ==
-           RegEnumValueA(hKey, i++, buff, &nn, NULL, NULL, buf, &n)) {
-        std::string com(reinterpret_cast<char const *>(buf));
-        std::string des(reinterpret_cast<char const *>(buff));
-        rets.push_back({com, des});
-        // printf_s("%s\t%s\t\n", buf, buff);
-        n = 256;
-        nn = 256;
+    bool bMoreItems = true;
+    int nIndex = 0;
+    SP_DEVINFO_DATA devInfo = {0};
+    while (bMoreItems) {
+        // Enumerate the current device
+        devInfo.cbSize = sizeof(SP_DEVINFO_DATA);
+        bMoreItems = SetupDiEnumDeviceInfo(hDevInfoSet, nIndex, &devInfo);
+        if (bMoreItems) {
+            // Did we find a serial port for this device
+            bool bAdded = false;
+
+            HKEY deviceKey =
+                SetupDiOpenDevRegKey(hDevInfoSet, &devInfo, DICS_FLAG_GLOBAL, 0,
+                                     DIREG_DEV, KEY_QUERY_VALUE);
+            if (deviceKey != INVALID_HANDLE_VALUE) {
+                int nPort = 0;
+                DWORD dwType, dwSize;
+                dwSize = MAX_PATH;
+                char pszValue[MAX_PATH];
+                char sFriendlyName[MAX_PATH];
+                ULONG nBytes;
+                auto lRes =
+                    RegQueryValueExA(deviceKey, "PortName", nullptr, &dwType,
+                                     (LPBYTE)pszValue, &nBytes);
+
+                if (lRes == ERROR_SUCCESS &&
+                    !(dwType != REG_SZ && dwType != REG_EXPAND_SZ)) {
+                    if (nBytes != 0) {
+                        std::string name(pszValue);
+                        if (SetupDiGetDeviceRegistryPropertyA(
+                                hDevInfoSet, &devInfo, SPDRP_DEVICEDESC,
+                                &dwType,
+                                reinterpret_cast<PBYTE>(&(sFriendlyName[0])),
+                                dwSize, &dwSize)) {
+                            if (dwType == REG_SZ || dwType == REG_EXPAND_SZ) {
+                                rets.push_back(
+                                    {name, std::string(sFriendlyName)});
+                            }
+                        }
+                    }
+                }
+            }
+            RegCloseKey(deviceKey);
+        }
+        ++nIndex;
     }
-    RegCloseKey(hKey);
-    // printf_s("\n");
+    SetupDiDestroyDeviceInfoList(hDevInfoSet);
     return rets;
 }
 
@@ -153,25 +184,25 @@ int SerialPort::Open() {
     switch (handshake) {
         case Handshake::None:
             dcb.fRtsControl = RTS_CONTROL_DISABLE;
-            dcb.fOutxCtsFlow=FALSE;
+            dcb.fOutxCtsFlow = FALSE;
             dcb.fOutX = false;
             dcb.fInX = false;
             break;
         case Handshake::RequestToSend:
             dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
-            dcb.fOutxCtsFlow=TRUE;
+            dcb.fOutxCtsFlow = TRUE;
             dcb.fOutX = false;
             dcb.fInX = false;
             break;
         case Handshake::RequestToSendXOnXOff:
             dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
-            dcb.fOutxCtsFlow=TRUE;
+            dcb.fOutxCtsFlow = TRUE;
             dcb.fOutX = true;
             dcb.fInX = true;
             break;
         case Handshake::XOnXOff:
             dcb.fRtsControl = RTS_CONTROL_DISABLE;
-            dcb.fOutxCtsFlow=FALSE;
+            dcb.fOutxCtsFlow = FALSE;
             dcb.fOutX = true;
             dcb.fInX = true;
             break;
@@ -334,25 +365,25 @@ int SerialPort::SetHandshake(Handshake handshake) {
     switch (handshake) {
         case Handshake::None:
             dcb.fRtsControl = RTS_CONTROL_DISABLE;
-            dcb.fOutxCtsFlow=FALSE;
+            dcb.fOutxCtsFlow = FALSE;
             dcb.fOutX = false;
             dcb.fInX = false;
             break;
         case Handshake::RequestToSend:
             dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
-            dcb.fOutxCtsFlow=TRUE;
+            dcb.fOutxCtsFlow = TRUE;
             dcb.fOutX = false;
             dcb.fInX = false;
             break;
         case Handshake::RequestToSendXOnXOff:
             dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
-            dcb.fOutxCtsFlow=TRUE;
+            dcb.fOutxCtsFlow = TRUE;
             dcb.fOutX = true;
             dcb.fInX = true;
             break;
         case Handshake::XOnXOff:
             dcb.fRtsControl = RTS_CONTROL_DISABLE;
-            dcb.fOutxCtsFlow=FALSE;
+            dcb.fOutxCtsFlow = FALSE;
             dcb.fOutX = true;
             dcb.fInX = true;
             break;
