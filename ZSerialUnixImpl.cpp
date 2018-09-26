@@ -421,7 +421,7 @@ char SerialPort::ReadByte() {
 std::string SerialPort::ReadExisting() {
     // #ifndef __APPLE__
     int bytes_available = 0;
-    if (ioctl((intptr_t)hcom, TIOCOUTQ, &bytes_available) < 0) {
+    if (ioctl((intptr_t)hcom, FIONREAD, &bytes_available) < 0) {
         printf("%s", strerror(errno));
     }
     std::string ret(bytes_available, 0);
