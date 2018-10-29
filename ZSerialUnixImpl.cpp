@@ -423,6 +423,7 @@ std::string SerialPort::ReadExisting() {
     int bytes_available = 0;
     if (ioctl((intptr_t)hcom, FIONREAD, &bytes_available) < 0) {
         printf("%s", strerror(errno));
+        return std::string();
     }
     std::string ret(bytes_available, 0);
     auto sz = read((intptr_t)hcom, &ret[0], bytes_available);

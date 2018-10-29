@@ -229,7 +229,13 @@ char SerialPort::ReadByte() {
 std::string SerialPort::ReadExisting() {
     DWORD dwError;
     COMSTAT cs;
-    ClearCommError(hcom, &dwError, &cs);
+    memset(&cs,0,sizeof(COMSTAT));
+    if(!ClearCommError(hcom, &dwError, &cs)){
+        return std::string();
+    }
+    if(cs.cbInQue<=0){
+        return std::string();
+    }
     std::string ret(cs.cbInQue, 0);
     DWORD read = 0;
     ReadFile(hcom, &ret[0], cs.cbInQue, &read, NULL);
