@@ -20,6 +20,13 @@
 #include <IOKit/serial/IOSerialKeys.h>
 #endif
 #include "ZSerial.h"
+#ifndef TIOCINQ
+#ifdef FIONREAD
+#define TIOCINQ FIONREAD
+#else
+#define TIOCINQ 0x541B
+#endif
+#endif
 namespace ZSerial {
 #ifdef __APPLE__
 static kern_return_t MyFindModems(io_iterator_t* matchingServices) {
@@ -317,29 +324,35 @@ int SerialPort::Open() {
     }
     fcntl((intptr_t)hcom, F_SETFL, 0);
 
-    options.c_cflag |= (CLOCAL | CREAD);
-
     cfsetospeed(&options, (intptr_t)baudrate);
     cfsetispeed(&options, (intptr_t)baudrate);
+
+    options.c_cflag |= (CLOCAL | CREAD);
 
     switch (parity) {
         case Parity ::None:
             options.c_cflag &= ~PARENB;
+            options.c_iflag &= ~INPCK;
+            options.c_iflag &= ~ISTRIP;
             break;
         case Parity ::Odd:
             options.c_cflag |= (PARENB | PARODD);
+            options.c_iflag |= INPCK | ISTRIP;
             break;
         case Parity ::Even:
             options.c_cflag |= PARENB;
             options.c_cflag &= ~PARODD;
+            options.c_iflag |= INPCK | ISTRIP;
             break;
 #ifdef CMSPAR
         case Parity ::Mark:
             options.c_cflag |= (PARENB | PARODD | CMSPAR);
+            options.c_iflag |= INPCK | ISTRIP;
             break;
         case Parity ::Space:
             options.c_cflag |= (PARENB | CMSPAR);
             options.c_cflag &= ~PARODD;
+            options.c_iflag |= INPCK | ISTRIP;
             break;
 #endif
         default:
@@ -399,8 +412,18 @@ int SerialPort::Open() {
         default:
             return 6;
     }
-    options.c_iflag &= ~IGNBRK;
-    options.c_lflag = 0;
+    // options.c_iflag &= ~IGNBRK;
+    // options.c_lflag = 0;
+    options.c_lflag &=
+        (tcflag_t) ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ISIG | IEXTEN);
+    options.c_oflag &= ~OPOST;
+    options.c_iflag &= (tcflag_t) ~(INLCR | IGNCR | ICRNL | IGNBRK);
+#ifdef IUCLC
+    options.c_iflag &= (tcflag_t)~IUCLC;
+#endif
+#ifdef PARMRK
+    options.c_iflag &= (tcflag_t)~PARMRK;
+#endif
     if (tcsetattr((intptr_t)hcom, TCSANOW, &options) != 0) {
         Close();
         // printf("error %d from tcsetattr", errno);
@@ -419,47 +442,18 @@ char SerialPort::ReadByte() {
     return c;
 }
 std::string SerialPort::ReadExisting() {
-    // #ifndef __APPLE__
     int bytes_available = 0;
-    if (ioctl((intptr_t)hcom, FIONREAD, &bytes_available) < 0) {
+    if (ioctl((intptr_t)hcom, TIOCINQ, &bytes_available) < 0) {
         printf("%s", strerror(errno));
+        return std::string();
+    }
+    if (bytes_available <= 0) {
         return std::string();
     }
     std::string ret(bytes_available, 0);
     auto sz = read((intptr_t)hcom, &ret[0], bytes_available);
     ret.resize(sz);
     return ret;
-    // #else
-    //     fd_set rfds;
-    //     struct timeval tv;
-    //     int retval;
-    //     FD_ZERO(&rfds);
-    //     FD_SET((intptr_t)hcom, &rfds);
-    //     tv.tv_sec = 0;
-    //     tv.tv_usec = 0;
-    //     retval = select((intptr_t)hcom + 1, &rfds, NULL, NULL, &tv);
-    //     if (retval > 0) {
-    //         if (FD_ISSET((intptr_t)hcom, &rfds)) {
-    //             std::string ret;
-    //             char c;
-    //             fcntl((intptr_t)hcom, F_SETFL, FNDELAY);
-    //             while (read((intptr_t)hcom, &c, 1) > 0) {
-    //                 ret.push_back(c);
-    //             }
-    //             // int bytes_available = 0;
-    //             // if (ioctl((intptr_t)hcom, TIOCOUTQ, &bytes_available) < 0)
-    //             {
-    //             //     printf("%s", strerror(errno));
-    //             // }
-    //             // std::string ret(bytes_available, 0);
-    //             // auto sz = read((intptr_t)hcom, &ret[0], bytes_available);
-    //             // ret.resize(sz);
-    //             fcntl((intptr_t)hcom, F_SETFL, 0);
-    //             return ret;
-    //         }
-    //     }
-    //     return "";
-    // #endif
 }
 
 std::string SerialPort::ReadLine() {
