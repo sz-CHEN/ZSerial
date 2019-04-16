@@ -18,6 +18,7 @@
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/serial/IOSerialKeys.h>
+#include <IOKit/serial/ioss.h>
 #endif
 #include "ZSerial.h"
 #ifndef TIOCINQ
@@ -308,8 +309,7 @@ SerialPort::GetPortNamesAndDescriptions() {
 }
 
 int SerialPort::Open() {
-    hcom =
-        (void*)(intptr_t)open(portName.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
+    hcom = (void*)(intptr_t)open(portName.c_str(), O_RDWR | O_NOCTTY);
     if ((intptr_t)hcom < 0) {
         // printf("open %s error\n",portName.c_str());
         return 1;
@@ -324,8 +324,185 @@ int SerialPort::Open() {
     }
     fcntl((intptr_t)hcom, F_SETFL, 0);
 
-    cfsetospeed(&options, (intptr_t)baudrate);
-    cfsetispeed(&options, (intptr_t)baudrate);
+    bool custom_baud = false;
+    speed_t baudrate_ = B0;
+    switch (baudrate) {
+#ifdef B50
+        case 50:
+            baudrate_ = B50;
+            break;
+#endif
+#ifdef B75
+        case 75:
+            baudrate_ = B75;
+            break;
+#endif
+#ifdef B110
+        case 110:
+            baudrate_ = B110;
+            break;
+#endif
+#ifdef B134
+        case 134:
+            baudrate_ = B134;
+            break;
+#endif
+#ifdef B150
+        case 150:
+            baudrate_ = B150;
+            break;
+#endif
+#ifdef B200
+        case 200:
+            baudrate_ = B200;
+            break;
+#endif
+#ifdef B300
+        case 300:
+            baudrate_ = B300;
+            break;
+#endif
+#ifdef B600
+        case 600:
+            baudrate_ = B600;
+            break;
+#endif
+#ifdef B1200
+        case 1200:
+            baudrate_ = B1200;
+            break;
+#endif
+#ifdef B1800
+        case 1800:
+            baudrate_ = B1800;
+            break;
+#endif
+#ifdef B2400
+        case 2400:
+            baudrate_ = B2400;
+            break;
+#endif
+#ifdef B4800
+        case 4800:
+            baudrate_ = B4800;
+            break;
+#endif
+#ifdef B9600
+        case 9600:
+            baudrate_ = B9600;
+            break;
+#endif
+#ifdef B19200
+        case 19200:
+            baudrate_ = B19200;
+            break;
+#endif
+#ifdef B38400
+        case 38400:
+            baudrate_ = B38400;
+            break;
+#endif
+#ifdef B57600
+        case 57600:
+            baudrate_ = B57600;
+            break;
+#endif
+#ifdef B115200
+        case 115200:
+            baudrate_ = B115200;
+            break;
+#endif
+#ifdef B230400
+        case 230400:
+            baudrate_ = B230400;
+            break;
+#endif
+#ifdef B460800
+        case 460800:
+            baudrate_ = B460800;
+            break;
+#endif
+#ifdef B500000
+        case 500000:
+            baudrate_ = B500000;
+            break;
+#endif
+#ifdef B576000
+        case 576000:
+            baudrate_ = B576000;
+            break;
+#endif
+#ifdef B921600
+        case 921600:
+            baudrate_ = B921600;
+            break;
+#endif
+#ifdef B1000000
+        case 1000000:
+            baudrate_ = B1000000;
+            break;
+#endif
+#ifdef B1152000
+        case 1152000:
+            baudrate_ = B1152000;
+            break;
+#endif
+#ifdef B1500000
+        case 1500000:
+            baudrate_ = B1500000;
+            break;
+#endif
+#ifdef B2000000
+        case 2000000:
+            baudrate_ = B2000000;
+            break;
+#endif
+#ifdef B2500000
+        case 2500000:
+            baudrate_ = B2500000;
+            break;
+#endif
+#ifdef B3000000
+        case 3000000:
+            baudrate_ = B3000000;
+            break;
+#endif
+#ifdef B3500000
+        case 3500000:
+            baudrate_ = B3500000;
+            break;
+#endif
+#ifdef B4000000
+        case 4000000:
+            baudrate_ = B4000000;
+            break;
+#endif
+        default:
+            custom_baud = true;
+            break;
+    }
+    if (!custom_baud) {
+        cfsetospeed(&options, (intptr_t)baudrate_);
+        cfsetispeed(&options, (intptr_t)baudrate_);
+    } else {
+#ifdef __linux__
+        struct serial_struct ser;
+        if (-1 == ioctl((intptr_t)hcom, TIOCGSERIAL, &ser)) {
+            return 8;
+        }
+        ser.custom_divisor = ser.baud_base / static_cast<int>(baudrate);
+        ser.flags &= ~ASYNC_SPD_MASK;
+        ser.flags |= ASYNC_SPD_CUST;
+        if (-1 == ioctl((intptr_t)hcom, TIOCSSERIAL, &ser)) {
+            return 8;
+        }
+#else
+        speed_t new_baud = baudrate;
+        if (-1 == ioctl((intptr_t)hcom, IOSSIOSPEED, &new_baud, 1)) {
+            return 8;
+        }
+#endif
+    }
 
     options.c_cflag |= (CLOCAL | CREAD);
 
@@ -473,6 +650,27 @@ std::string SerialPort::ReadLine() {
     }
 }
 
+std::future<std::string> SerialPort::ReadAsync(uint64_t time) {
+    return std::async(
+        [this](int hcom, uint64_t time) -> std::string {
+            fd_set fdread, fdexcept;
+            struct timeval timeout;
+            timeout.tv_sec = time / 1000;
+            timeout.tv_usec = (time % 1000) * 1000;
+
+            /* Initialize the input set */
+            FD_ZERO(&fdread);
+            FD_SET((intptr_t)hcom, &fdread);
+            if (select((intptr_t)hcom + 1, &fdread, nullptr, nullptr,
+                       &timeout) > 0 &&
+                FD_ISSET((intptr_t)hcom, &fdread)) {
+                return this->ReadExisting();
+            }
+            return std::string();
+        },
+        (int)(intptr_t)hcom, time);
+}
+
 void SerialPort::Write(char* buffer, int offset, int count) {
     write((intptr_t)hcom, buffer + offset, count);
 }
@@ -506,8 +704,185 @@ int SerialPort::SetBaudRate(int baudrate) {
         // printf("tcgetattr %s error\n",portName.c_str());
         return 2;
     }
-    cfsetospeed(&options, baudrate);
-    cfsetispeed(&options, baudrate);
+    bool custom_baud = false;
+    speed_t baudrate_ = B0;
+    switch (baudrate) {
+#ifdef B50
+        case 50:
+            baudrate_ = B50;
+            break;
+#endif
+#ifdef B75
+        case 75:
+            baudrate_ = B75;
+            break;
+#endif
+#ifdef B110
+        case 110:
+            baudrate_ = B110;
+            break;
+#endif
+#ifdef B134
+        case 134:
+            baudrate_ = B134;
+            break;
+#endif
+#ifdef B150
+        case 150:
+            baudrate_ = B150;
+            break;
+#endif
+#ifdef B200
+        case 200:
+            baudrate_ = B200;
+            break;
+#endif
+#ifdef B300
+        case 300:
+            baudrate_ = B300;
+            break;
+#endif
+#ifdef B600
+        case 600:
+            baudrate_ = B600;
+            break;
+#endif
+#ifdef B1200
+        case 1200:
+            baudrate_ = B1200;
+            break;
+#endif
+#ifdef B1800
+        case 1800:
+            baudrate_ = B1800;
+            break;
+#endif
+#ifdef B2400
+        case 2400:
+            baudrate_ = B2400;
+            break;
+#endif
+#ifdef B4800
+        case 4800:
+            baudrate_ = B4800;
+            break;
+#endif
+#ifdef B9600
+        case 9600:
+            baudrate_ = B9600;
+            break;
+#endif
+#ifdef B19200
+        case 19200:
+            baudrate_ = B19200;
+            break;
+#endif
+#ifdef B38400
+        case 38400:
+            baudrate_ = B38400;
+            break;
+#endif
+#ifdef B57600
+        case 57600:
+            baudrate_ = B57600;
+            break;
+#endif
+#ifdef B115200
+        case 115200:
+            baudrate_ = B115200;
+            break;
+#endif
+#ifdef B230400
+        case 230400:
+            baudrate_ = B230400;
+            break;
+#endif
+#ifdef B460800
+        case 460800:
+            baudrate_ = B460800;
+            break;
+#endif
+#ifdef B500000
+        case 500000:
+            baudrate_ = B500000;
+            break;
+#endif
+#ifdef B576000
+        case 576000:
+            baudrate_ = B576000;
+            break;
+#endif
+#ifdef B921600
+        case 921600:
+            baudrate_ = B921600;
+            break;
+#endif
+#ifdef B1000000
+        case 1000000:
+            baudrate_ = B1000000;
+            break;
+#endif
+#ifdef B1152000
+        case 1152000:
+            baudrate_ = B1152000;
+            break;
+#endif
+#ifdef B1500000
+        case 1500000:
+            baudrate_ = B1500000;
+            break;
+#endif
+#ifdef B2000000
+        case 2000000:
+            baudrate_ = B2000000;
+            break;
+#endif
+#ifdef B2500000
+        case 2500000:
+            baudrate_ = B2500000;
+            break;
+#endif
+#ifdef B3000000
+        case 3000000:
+            baudrate_ = B3000000;
+            break;
+#endif
+#ifdef B3500000
+        case 3500000:
+            baudrate_ = B3500000;
+            break;
+#endif
+#ifdef B4000000
+        case 4000000:
+            baudrate_ = B4000000;
+            break;
+#endif
+        default:
+            custom_baud = true;
+            break;
+    }
+    if (!custom_baud) {
+        cfsetospeed(&options, (intptr_t)baudrate_);
+        cfsetispeed(&options, (intptr_t)baudrate_);
+    } else {
+#ifdef __linux__
+        struct serial_struct ser;
+        if (-1 == ioctl((intptr_t)hcom, TIOCGSERIAL, &ser)) {
+            return 8;
+        }
+        ser.custom_divisor = ser.baud_base / static_cast<int>(baudrate);
+        ser.flags &= ~ASYNC_SPD_MASK;
+        ser.flags |= ASYNC_SPD_CUST;
+        if (-1 == ioctl((intptr_t)hcom, TIOCSSERIAL, &ser)) {
+            return 8;
+        }
+#else
+        speed_t new_baud = baudrate;
+        if (-1 == ioctl((intptr_t)hcom, IOSSIOSPEED, &new_baud, 1)) {
+            return 8;
+        }
+#endif
+    }
     if (tcsetattr((intptr_t)hcom, TCSANOW, &options) != 0) {
         // printf("error %d from tcsetattr", errno);
         return 7;

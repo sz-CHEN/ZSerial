@@ -2,6 +2,7 @@
 #define __BASE_SERIAL_H
 #include <string>
 #include <vector>
+#include <future>
 #ifdef _WIN32
 #define DLL_EXPORT _declspec(dllexport)
 #else
@@ -67,6 +68,7 @@ class DLL_EXPORT SerialPort {
     char ReadByte();
     std::string ReadExisting();
     std::string ReadLine();
+    std::future<std::string> ReadAsync(uint64_t timeout);
     void Write(char* buffer, int offset, int count);
     void Write(std::string text);
 #ifdef _WIN32
