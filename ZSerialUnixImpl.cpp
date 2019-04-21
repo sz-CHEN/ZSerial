@@ -13,6 +13,9 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#ifdef __linux__
+#include <linux/serial.h>
+#endif
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOBSD.h>
