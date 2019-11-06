@@ -1,8 +1,8 @@
 #ifndef __BASE_SERIAL_H
 #define __BASE_SERIAL_H
+#include <future>
 #include <string>
 #include <vector>
-#include <future>
 #ifdef _WIN32
 #define DLL_EXPORT _declspec(dllexport)
 #else

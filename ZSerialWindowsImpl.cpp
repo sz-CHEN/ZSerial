@@ -162,8 +162,8 @@ SerialPort::GetPortNamesAndDescriptions() {
 
 int SerialPort::Open() {
     hcom = CreateFile(TEXT(("\\\\.\\" + portName).c_str()),
-                      GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0,
-                      NULL);
+                      GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                      FILE_FLAG_OVERLAPPED, NULL);
     if (hcom == INVALID_HANDLE_VALUE) {
         // printf_s("CreateFile failed with error %d.\n", GetLastError());
         return 1;
@@ -215,30 +215,32 @@ int SerialPort::Open() {
     return 0;
 }
 int SerialPort::Read(char *buffer, int offset, int count) {
-    unsigned long read = 0;
-    ReadFile(hcom, buffer + offset, count, &read, NULL);
+    OVERLAPPED overlap = {0};
+    overlap.hEvent = CreateEvent(nullptr, true, false, nullptr);
+    DWORD read = 0;
+    ReadFile(hcom, buffer + offset, count, &read, &overlap);
+    GetOverlappedResult(hcom, &overlap, &read, true);
+    CloseHandle(overlap.hEvent);
     return read;
 }
 char SerialPort::ReadByte() {
-    char c;
-    DWORD read;
-    ReadFile(hcom, &c, 1, &read, NULL);
+    char c = 0;
+    Read(&c, 0, 1);
     return c;
 }
 
 std::string SerialPort::ReadExisting() {
     DWORD dwError;
     COMSTAT cs;
-    memset(&cs,0,sizeof(COMSTAT));
-    if(!ClearCommError(hcom, &dwError, &cs)){
+    memset(&cs, 0, sizeof(COMSTAT));
+    if (!ClearCommError(hcom, &dwError, &cs)) {
         return std::string();
     }
-    if(cs.cbInQue<=0){
+    if (cs.cbInQue <= 0) {
         return std::string();
     }
     std::string ret(cs.cbInQue, 0);
-    DWORD read = 0;
-    ReadFile(hcom, &ret[0], cs.cbInQue, &read, NULL);
+    DWORD read = Read(&ret[0], 0, cs.cbInQue);
     ret.resize(read);
     return ret;
 }
@@ -247,13 +249,17 @@ std::string SerialPort::ReadLine() {
     std::string str;
     char c;
     DWORD read;
+    OVERLAPPED overlap = {0};
+    overlap.hEvent = CreateEvent(nullptr, true, false, nullptr);
     while (true) {
-        ReadFile(hcom, &c, 1, &read, NULL);
+        ReadFile(hcom, &c, 1, &read, &overlap);
+        GetOverlappedResult(hcom, &overlap, &read, true);
         if (read == 1) {
             if (c == '\n') {
                 if (str.back() == '\r') {
                     str.pop_back();
                 }
+                CloseHandle(overlap.hEvent);
                 return str;
             }
             str.push_back(c);
@@ -261,19 +267,56 @@ std::string SerialPort::ReadLine() {
     }
 }
 
-void SerialPort::Write(char *buffer, int offset, int count) {
-    DWORD write = 0;
-    WriteFile(hcom, buffer + offset, count, &write, NULL);
+std::future<std::string> SerialPort::ReadAsync(uint64_t timeout) {
+    return std::async(
+        [this](void *hcom, uint64_t time) -> std::string {
+            SetCommMask(hcom, EV_RXCHAR);
+            OVERLAPPED overlap = {0};
+            overlap.hEvent = CreateEvent(nullptr, true, false, nullptr);
+            DWORD mask = 0;
+            WaitCommEvent(hcom, &mask, &overlap);
+            if (WAIT_OBJECT_0 == WaitForSingleObject(overlap.hEvent, time)) {
+                DWORD dwError;
+                COMSTAT cs;
+                memset(&cs, 0, sizeof(COMSTAT));
+                if (!ClearCommError(hcom, &dwError, &cs)) {
+                    CloseHandle(overlap.hEvent);
+                    return std::string();
+                }
+                if (cs.cbInQue <= 0) {
+                    CloseHandle(overlap.hEvent);
+                    return std::string();
+                }
+                std::string ret(cs.cbInQue, 0);
+                DWORD read = 0;
+                ReadFile(hcom, &ret[0], cs.cbInQue, &read, &overlap);
+                GetOverlappedResult(hcom, &overlap, &read, true);
+                ret.resize(read);
+                CloseHandle(overlap.hEvent);
+                return ret;
+            }
+            CloseHandle(overlap.hEvent);
+            return std::string();
+        },
+        hcom, timeout);
 }
-void SerialPort::Write(std::string text) {
+
+void SerialPort::Write(char *buffer, int offset, int count) {
+    OVERLAPPED overlap = {0};
+    overlap.hEvent = CreateEvent(nullptr, true, false, nullptr);
     DWORD write = 0;
-    WriteFile(hcom, &text[0], text.size(), &write, NULL);
+    WriteFile(hcom, buffer + offset, count, &write, &overlap);
+    GetOverlappedResult(hcom, &overlap, &write, true);
+    CloseHandle(overlap.hEvent);
+}
+
+void SerialPort::Write(std::string text) {
+    Write((char *)text.data(), 0, text.size());
 }
 void SerialPort::WriteLine(std::string text, bool hasCR) {
     if (hasCR) text += '\r';
     text += '\n';
-    unsigned long write = 0;
-    WriteFile(hcom, &text[0], text.size(), &write, NULL);
+    Write(text);
 }
 bool SerialPort::IsOpen() { return opened; }
 int SerialPort::SetPortName(std::string port) {
